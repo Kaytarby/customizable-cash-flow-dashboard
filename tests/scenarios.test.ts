@@ -54,6 +54,17 @@ test('planfact analysis works on past periods (2024)', () => {
   assert.ok(plan !== null && fact !== null);
 });
 
+test('planfact fact is null after fact cutoff (after 15 March 2026)', () => {
+  const m = buildModel({...DEFAULTS,scenario:'planfact',from:'2026-01-01',to:'2026-12-31',levels:['month'],grandTotal:false},'');
+  const ri = m.rows.findIndex(r=>r.id==='rev_retail');
+  // Январь (col 1 = fact): есть данные
+  const factJan = m.values[ri][1];
+  // Апрель (месяц 3, колонки 12-15; fact = 13): после даты отреза факта — null
+  const factApr = m.values[ri][13];
+  assert.ok(factJan !== null && Math.abs(factJan) > 0, 'январь факт есть');
+  assert.equal(factApr, null, 'апрель факт null (после 15 марта)');
+});
+
 test('comparison shows full-year budget against the stitched rolling forecast', () => {
   const m = buildModel({...DEFAULTS,scenario:'compare',comparison:'budget',from:'2026-01-01',to:'2026-12-31',levels:['month'],grandTotal:false},'');
   assert.equal(m.cols.length,48); // 12 months * (Бюджет, Ролинг, Δ, % вып.)

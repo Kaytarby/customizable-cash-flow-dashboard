@@ -174,7 +174,16 @@ export function buildModel(st: Settings, query: string): Model {
 /** Shared by pivot and drilldown so displayed totals always reconcile. */
 export function cellValue(r: RowView, c: Col, st: Settings, rangeStart: number, bounds?: RollingBounds): number | null {
   const scenario = (st.scenario === "compare" || st.scenario === "planfact") ? c.node.scenario ?? "fact" : st.scenario;
-  const value = (a: Article, sc: Scenario) => articleValue(a, c.node.s, c.node.e, rangeStart, st.mode, sc, bounds);
+  // Факт доступен только до даты отреза факта — колонка «Факт» пуста после неё
+  const value = (a: Article, sc: Scenario) => {
+    let ce = c.node.e;
+    if (sc === "fact") {
+      const factEnd = bounds?.factEnd ?? FACT_END_DAY;
+      if (c.node.s > factEnd) return null;
+      ce = Math.min(c.node.e, factEnd);
+    }
+    return articleValue(a, c.node.s, ce, rangeStart, st.mode, sc, bounds);
+  };
   if (c.node.pctExec) {
     const plan = value(r.art, "budget");
     const actual = value(r.art, scenario);
