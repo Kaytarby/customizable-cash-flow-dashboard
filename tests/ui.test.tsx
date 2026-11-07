@@ -13,9 +13,9 @@ test('percentage balance cells explain unavailable values instead of showing mon
   assert.ok(html.includes('Остатки не рассчитываются в процентах'));
   assert.ok(!html.includes('Начальный остаток на 01.01.2024'));
 });
-test('main-area scenario tabs expose all five sheets',()=>{
+test('main-area scenario tabs expose all six sheets',()=>{
   const html = renderToStaticMarkup(<ScenarioTabs st={DEFAULTS} set={()=>{}} />);
-  for(const label of ['Факт','Бюджет','Оперплан','Ролинг-форкаст','Сравнение']) assert.ok(html.includes(label));
+  for(const label of ['Факт','Бюджет','Оперплан','Ролинг-форкаст','Сравнение','План-факт анализ']) assert.ok(html.includes(label));
   assert.ok(html.includes('aria-selected="true"'));
 });
 test('comparison tab shows rolling vs budget label',()=>{
