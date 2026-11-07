@@ -155,11 +155,30 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
         </td>
         {cols.map((c, ci) => {
           const v = values[ri][ci];
-          const f = fmt(v);
+          const isPctExec = !!c.node.pctExec;
+          const f = isPctExec
+            ? (v === null ? { text: "–", neg: false, zero: true } : { text: `${v.toFixed(1)}%`, neg: v < 100, zero: false })
+            : fmt(v);
+          // Execution %: income — <100% red, >=100% green; expense — наоборот (<100% green/saved, >=100% red/overspent)
+          let execColor = "";
+          if (isPctExec && v !== null && !isCalc) {
+            const isOut = r.art.dir === "out" || ["op_out","cogs","staff","rent","mkt","tax","admin","inv_capex","inv_dev","loan_main","loan_int","owner_div","inv","fin"].includes(r.art.id) || (r.kind === "group" && r.art.children?.every(ch => ch.dir === "out"));
+            // pctExec = actual/plan*100 (both positive magnitudes for comparison). >=100 means more than planned.
+            const good = isOut ? v < 100 : v >= 100;
+            const onTarget = Math.abs(v - 100) < 0.05;
+            execColor = onTarget ? "text-ink font-medium" : good ? "text-pos font-medium" : "text-neg font-medium";
+          }
           const isSub = c.kind === "sub";
           const isTot = c.kind === "total";
+          const scenBg = !isTot && !isSub && st.scenario === "rolling"
+            ? (c.node.scenario === "plan"
+                ? "bg-sky-500/[0.08] border-l border-l-sky-400/40"
+                : c.node.scenario === "budget"
+                  ? "bg-amber-500/[0.09] border-l border-l-amber-400/40"
+                  : "")
+            : "";
           let style: React.CSSProperties | undefined;
-          if (st.heat && c.kind === "leaf" && v !== null && !isCalc && !f.zero) {
+          if (st.heat && c.kind === "leaf" && v !== null && !isCalc && !f.zero && !isPctExec) {
             const max = heatMax[ri][LEVEL_ORDER[c.node.level as keyof typeof LEVEL_ORDER]] || 1;
             const a = Math.min(1, Math.abs(v) / max) * 0.34;
             style = { backgroundColor: `rgba(var(${v < 0 ? "--heat-neg" : "--heat-pos"}), ${a.toFixed(3)})` };
@@ -173,8 +192,9 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
                 grid && "border-r border-r-line/50",
                 isSub && "bg-ink/[0.035] font-medium",
                 isTot && "sticky right-0 z-10 border-l border-l-line bg-inherit font-semibold shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.25)]",
-                !isSub && !isTot && st.weekendTint && c.node.weekend && !style && "bg-ink/[0.03]",
-                f.zero ? "text-ink-3" : f.neg && st.negRed ? "text-neg" : "text-ink"
+                scenBg,
+                !isSub && !isTot && st.weekendTint && c.node.weekend && !style && !scenBg && "bg-ink/[0.03]",
+                execColor || (f.zero ? "text-ink-3" : f.neg && st.negRed ? "text-neg" : "text-ink")
               )}
             >
               <button className="w-full rounded text-right hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent" aria-label={`Расшифровать: ${r.name}, ${c.node.title}`} onClick={() => setDrill({ row: r, column: ci })}>{f.text}</button>
@@ -227,7 +247,9 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
                       grid ? "border-r border-r-line/60" : "",
                       isTotal ? "right-0 z-30 border-l border-l-line shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.25)]" : "z-20",
                       h.kind === "sub" && "bg-[color-mix(in_srgb,var(--ink)_4%,var(--surface-2))]",
-                      h.node.weekend && st.weekendTint && "text-neg/80"
+                      h.node.weekend && st.weekendTint && "text-neg/80",
+                      st.scenario === "rolling" && h.node.scenario === "plan" && "bg-sky-500/[0.11]",
+                      st.scenario === "rolling" && h.node.scenario === "budget" && "bg-amber-500/[0.12]"
                     )}
                   >
                     {h.kind === "group" ? (

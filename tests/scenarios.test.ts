@@ -27,11 +27,15 @@ test('rolling leaf columns cover every day once and never split budget months', 
 });
 test('comparison shows full-year budget against the stitched rolling forecast', () => {
   const m = buildModel({...DEFAULTS,scenario:'compare',comparison:'budget',from:'2026-01-01',to:'2026-12-31',levels:['month'],grandTotal:false},'');
-  assert.equal(m.cols.length,36);
+  assert.equal(m.cols.length,48); // 12 months * (Бюджет, Ролинг, Δ, % вып.)
   const ri = m.rows.findIndex(r=>r.id==='op');
   assert.equal(m.cols[0].node.scenario,'budget');
   assert.equal(m.cols[1].node.scenario,'rolling');
+  assert.equal(m.cols[2].node.delta,'budget');
+  assert.equal(m.cols[3].node.pctExec,true);
   assert.equal(m.values[ri][2],m.values[ri][1]! - m.values[ri][0]!);
+  const plan = m.values[ri][0]!, actual = m.values[ri][1]!;
+  if (plan !== 0) assert.ok(Math.abs(m.values[ri][3]! - (Math.abs(actual)/Math.abs(plan))*100) < 0.001);
 });
 test('counterparty allocations reconcile exactly to each article amount', () => {
   for (const article of LEAVES) for (const scenario of ['fact','plan','budget','rolling'] as const) {
