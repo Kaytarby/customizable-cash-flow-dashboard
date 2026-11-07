@@ -280,6 +280,21 @@ export function scenarioPrefix(a: Article, scenario: Scenario): Float64Array {
   return prefix;
 }
 
+const COUNTERPARTIES = ["ООО Альфа", "ООО Вектор", "АО Меридиан", "ООО Север", "ИП Смирнов"];
+export function counterpartyValues(a: Article, s: number, e: number, rangeStart: number, mode: Mode, scenario: Scenario) {
+  const amount = articleValue(a, s, e, rangeStart, mode, scenario) ?? 0;
+  if (a.kind === "calc" || amount === 0) return [{ name: "Без контрагента", value: amount }];
+  const hash = [...a.id].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const shares = COUNTERPARTIES.map((_, i) => 1 + ((hash + i * 13) % 9));
+  const shareTotal = shares.reduce((sum, share) => sum + share, 0);
+  let assigned = 0;
+  return COUNTERPARTIES.map((name, i) => {
+    const value = i === shares.length - 1 ? amount - assigned : amount * shares[i] / shareTotal;
+    assigned += value;
+    return { name, value };
+  });
+}
+
 export function scenarioTotals(s: number, e: number, scenario: Scenario) {
   let inn = 0, out = 0;
   for (const a of LEAVES) {

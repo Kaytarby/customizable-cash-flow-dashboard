@@ -6,14 +6,12 @@ export function ScenarioTabs({ st, set }: { st: Settings; set: (patch: Partial<S
   return <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line" role="tablist" aria-label="Сценарии ДДС">
     {TABS.map(scenario => <button key={scenario} role="tab" aria-selected={st.scenario === scenario}
       onClick={() => {
-        const period = SCENARIO_PERIODS[scenario === 'compare' ? 'fact' : scenario];
-        set({ scenario, from: period.from, to: period.to, colOverrides: {}, detail: scenario === 'plan' || scenario === 'rolling' ? 'week' : 'month' });
+        const period = SCENARIO_PERIODS[scenario === 'compare' ? 'rolling' : scenario];
+        set({ scenario, from: period.from, to: period.to, colOverrides: {}, detail: scenario === 'plan' || scenario === 'rolling' ? 'week' : 'month', levels: scenario === 'compare' ? ['month'] : undefined });
       }}
       className={cn('rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium', st.scenario === scenario ? 'border-line bg-surface text-accent' : 'border-transparent text-ink-3 hover:bg-surface-2 hover:text-ink')}>
       {scenario === 'compare' ? 'Сравнение' : SCENARIO_LABELS[scenario]}
     </button>)}
-    {st.scenario === 'compare' && <select aria-label="Вариант сравнения" value={st.comparison} onChange={e => set({ comparison: e.target.value as Settings['comparison'] })} className="mb-1 ml-auto rounded-lg border border-line bg-surface p-2 text-xs text-ink">
-      <option value="all">Факт — Оперплан — Бюджет</option><option value="budget">Факт — Бюджет</option>
-    </select>}
+    {st.scenario === 'compare' && <span className="mb-1 ml-auto px-2 text-xs font-medium text-ink-2">Ролинг-форкаст − бюджет · 2026</span>}
   </div>;
 }

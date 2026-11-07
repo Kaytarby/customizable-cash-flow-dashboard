@@ -153,7 +153,7 @@ export default function App() {
       </header>
 
       <ScenarioTabs st={st} set={set} />
-      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? "Факт: 01.01–15.03.2026 → Оперплан: 16.03–30.04 → Бюджет: май–декабрь (месяцы)" : st.scenario === "compare" ? "Сценарии сравниваются за одинаковый выбранный период. Δ — факт минус оперплан / бюджет." : "Нажмите на сумму для расшифровки по статьям"}</div>
+      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? "Факт: 01.01–15.03.2026 → Оперплан: 16.03–30.04 → Бюджет: май–декабрь (месяцы)" : st.scenario === "compare" ? "Бюджет сопоставлен с ролинг-форкастом (факт + оперплан + бюджет) за 2026 год. Δ — ролинг-форкаст минус бюджет." : "Нажмите на сумму для расшифровки по статьям"}</div>
       <Toolbar st={st} set={set} query={query} setQuery={setQuery} colCount={model.cols.length} />
       {st.kpi && <Kpis s={model.rangeS} e={model.rangeE} scenario={st.scenario === "compare" ? "fact" : st.scenario} />}
 

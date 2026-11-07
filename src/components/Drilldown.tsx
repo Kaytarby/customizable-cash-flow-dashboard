@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { Article, LEAVES, OPENING_BALANCE } from '../lib/data';
+import { Article, LEAVES, OPENING_BALANCE, counterpartyValues } from '../lib/data';
 import { Model, RowView, cellValue } from '../lib/model';
 import { Settings } from '../lib/settings';
 import { makeFormatter } from '../lib/format';
@@ -24,7 +24,21 @@ export function Drilldown({ model, st, row, column, onClose }: { model: Model; s
     {unavailable ? <div className="p-4 text-center text-sm text-ink-3">Остатки не рассчитываются в процентах от выручки. Переключите режим на «Суммы», чтобы увидеть расшифровку.</div> : <>
     <div className="max-h-[60vh] overflow-auto p-4"><p className="mb-3 text-xs text-ink-3">Состав суммы по статьям. Скрытые в таблице статьи также учитываются.</p>
       {balance && <div className="mb-2 flex justify-between gap-4 text-sm"><span>Начальный остаток на 01.01.2024{col.node.delta ? ' (разница)' : ''}</span><span className="num">{fmt(baseline).text}</span></div>}
-      {parts.map(a => <div key={a.id} className="flex justify-between gap-4 border-b border-line py-2 text-sm"><span>{a.name}</span><span className="num whitespace-nowrap">{fmt(value(a)).text}</span></div>)}
+      {parts.map(a => {
+        const articleTotal = value(a);
+        const sc = col.node.scenario ?? (st.scenario === 'compare' ? 'rolling' : st.scenario);
+        const counterparts = !balance && st.mode !== 'pct' && a.kind === 'leaf' ? counterpartyValues(a, col.node.s, col.node.e, model.rangeS, 'sum', sc) : [];
+        return <details key={a.id} className="group border-b border-line">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-2 text-sm">
+            <span className="flex items-center gap-1.5">{counterparts.length > 0 && <span className="text-ink-3 group-open:rotate-90 transition-transform">▸</span>}{a.name}</span>
+            <span className="num whitespace-nowrap font-medium">{fmt(articleTotal).text}</span>
+          </summary>
+          {counterparts.length > 0 && <div className="mb-2 ml-5 space-y-1 rounded bg-surface-2/60 px-3 py-2">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-3">По контрагентам</div>
+            {counterparts.map(cp => <div key={cp.name} className="flex justify-between gap-4 text-[12.5px] text-ink-2"><span>{cp.name}</span><span className="num">{fmt(cp.value).text}</span></div>)}
+          </div>}
+        </details>;
+      })}
     </div><footer className="flex justify-between border-t border-line p-4 font-semibold"><span>Итого</span><span className="num">{fmt(cellValue(row, col, st, model.rangeS)).text}</span></footer>
     </>}
   </dialog>;

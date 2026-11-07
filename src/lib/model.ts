@@ -104,7 +104,7 @@ export function buildModel(st: Settings, query: string): Model {
       };
       nodes.forEach(tag); tree.push(...nodes);
     }
-  } else tree = buildTree(st.scenario === "budget" ? ["month"] : st.levels, s, e);
+  } else tree = buildTree(st.scenario === "budget" || st.scenario === "compare" ? ["month"] : st.levels, s, e);
   const isExpanded = (n: ColNode) => {
     const o = st.colOverrides[n.key];
     if (o !== undefined) return o;
@@ -116,9 +116,11 @@ export function buildModel(st: Settings, query: string): Model {
     : null;
   let { cells, cols, rows: headerRows } = layoutColumns(tree, isExpanded, st.subtotal, grand);
   if (st.scenario === "compare") {
-    const metrics: { label: string; scenario: Scenario; delta?: "plan" | "budget" }[] = st.comparison === "budget"
-      ? [{ label: "Факт", scenario: "fact" }, { label: "Бюджет", scenario: "budget" }, { label: "Δ Ф−Б", scenario: "fact", delta: "budget" }]
-      : [{ label: "Факт", scenario: "fact" }, { label: "Оперплан", scenario: "plan" }, { label: "Бюджет", scenario: "budget" }, { label: "Δ Ф−О", scenario: "fact", delta: "plan" }, { label: "Δ Ф−Б", scenario: "fact", delta: "budget" }];
+    const metrics = [
+      { label: "Бюджет", scenario: "budget" as Scenario },
+      { label: "Ролинг-форкаст", scenario: "rolling" as Scenario },
+      { label: "Δ Ролинг − бюджет", scenario: "rolling" as Scenario, delta: "budget" as "budget" },
+    ];
     const base = cols;
     cells = [[], []]; cols = []; headerRows = 2;
     for (const col of base) {
