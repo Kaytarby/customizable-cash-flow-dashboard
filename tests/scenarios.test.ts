@@ -37,8 +37,21 @@ test('planfact analysis shows budget vs fact vs deviation', () => {
   const plan = m.values[ri][0]!, fact = m.values[ri][1]!;
   // columns 0..3 of month Январь: План, Факт, Отклонение, %
   assert.equal(m.values[ri][2], fact - plan);
-  assert.equal(m.values[ri][2], fact - plan);
   if (plan !== 0) assert.ok(Math.abs(m.values[ri][3]! - ((Math.abs(fact)-Math.abs(plan))/Math.abs(plan))*100) < 0.001);
+});
+
+test('planfact analysis works on past periods (2024)', () => {
+  const m = buildModel({...DEFAULTS,scenario:'planfact',from:'2024-01-01',to:'2024-12-31',levels:['month'],grandTotal:false},'');
+  assert.equal(m.cols.length,48);
+  assert.equal(m.cols[0].node.scenario,'budget');
+  assert.equal(m.cols[1].node.scenario,'fact');
+  assert.equal(m.cols[2].node.delta,'budget');
+  assert.equal(m.cols[3].node.pctDev,true);
+  const ri = m.rows.findIndex(r=>r.id==='op');
+  const plan = m.values[ri][0]!, fact = m.values[ri][1]!;
+  assert.equal(m.values[ri][2], fact - plan);
+  // на прошлом периоде расчёт работает корректно (не null)
+  assert.ok(plan !== null && fact !== null);
 });
 
 test('comparison shows full-year budget against the stitched rolling forecast', () => {
