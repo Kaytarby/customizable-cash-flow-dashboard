@@ -1,3 +1,4 @@
+import { ScenarioTabs } from "./components/ScenarioTabs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Layers, Moon, SlidersHorizontal, Sun, Trash2, BookmarkPlus, Banknote } from "lucide-react";
 import { PivotTable } from "./components/PivotTable";
@@ -151,11 +152,13 @@ export default function App() {
         </div>
       </header>
 
+      <ScenarioTabs st={st} set={set} />
+      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? "Факт: 01.01–15.03.2026 → Оперплан: 16.03–30.04 → Бюджет: май–декабрь (месяцы)" : st.scenario === "compare" ? "Сценарии сравниваются за одинаковый выбранный период. Δ — факт минус оперплан / бюджет." : "Нажмите на сумму для расшифровки по статьям"}</div>
       <Toolbar st={st} set={set} query={query} setQuery={setQuery} colCount={model.cols.length} />
-      {st.kpi && <Kpis s={model.rangeS} e={model.rangeE} />}
+      {st.kpi && <Kpis s={model.rangeS} e={model.rangeE} scenario={st.scenario === "compare" ? "fact" : st.scenario} />}
 
       <div className="relative flex min-h-0 flex-1 gap-3">
-        <main className="min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+        <main key={st.scenario} className="min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
           <PivotTable model={model} st={st} query={query} handlers={handlers} />
         </main>
         {panel && (

@@ -1,4 +1,4 @@
-import { TOTAL_DAYS, dayToDate, isoToDay, dow } from "./dates";
+import { TOTAL_DAYS, dayToDate, isoToDay, dow, Scenario, FACT_END_DAY, PLAN_END_DAY } from "./dates";
 
 export type Dir = "in" | "out";
 export type Kind = "group" | "leaf" | "calc";
@@ -223,13 +223,16 @@ const REVENUE = BY_ID.get("op_in")!;
 export type Mode = "sum" | "cum" | "pct";
 
 /** значение статьи за период [s,e] */
-export function articleValue(a: Article, s: number, e: number, rangeStart: number, mode: Mode): number | null {
-  if (a.kind === "calc" && a.calc === "open") return mode === "pct" ? null : OPENING_BALANCE + NET.prefix[s];
-  if (a.kind === "calc" && a.calc === "close") return mode === "pct" ? null : OPENING_BALANCE + NET.prefix[e + 1];
+export function articleValue(a: Article, s: number, e: number, rangeStart: number, mode: Mode, scenario: Scenario = "fact"): number | null {
+  const net = scenarioPrefix(NET, scenario);
+  if (a.kind === "calc" && a.calc === "open") return mode === "pct" ? null : OPENING_BALANCE + net[s];
+  if (a.kind === "calc" && a.calc === "close") return mode === "pct" ? null : OPENING_BALANCE + net[e + 1];
   const from = mode === "cum" ? rangeStart : s;
-  const v = a.prefix[e + 1] - a.prefix[from];
+  const prefix = scenarioPrefix(a, scenario);
+  const v = prefix[e + 1] - prefix[from];
   if (mode === "pct") {
-    const rev = REVENUE.prefix[e + 1] - REVENUE.prefix[from];
+    const revenue = scenarioPrefix(REVENUE, scenario);
+    const rev = revenue[e + 1] - revenue[from];
     return rev ? (v / rev) * 100 : 0;
   }
   return v;
@@ -237,4 +240,51 @@ export function articleValue(a: Article, s: number, e: number, rangeStart: numbe
 
 export function sumRange(prefix: Float64Array, s: number, e: number) {
   return prefix[Math.min(e + 1, N)] - prefix[Math.max(s, 0)];
+}
+
+// Each scenario shares the article tree, but owns deterministic daily values.
+const scenarioCache = new Map<string, Float64Array>();
+export function scenarioPrefix(a: Article, scenario: Scenario): Float64Array {
+  if (scenario === "fact") return a.prefix;
+  const key = `${scenario}:${a.id}`;
+  const cached = scenarioCache.get(key);
+  if (cached) return cached;
+  let prefix: Float64Array;
+  if (a.children || a.calc === "net") {
+    prefix = new Float64Array(N + 1);
+    for (const child of a.children ?? groups) {
+      const cp = scenarioPrefix(child, scenario);
+      for (let i = 0; i <= N; i++) prefix[i] += cp[i];
+    }
+  } else if (a.kind === "calc") {
+    prefix = new Float64Array(N + 1);
+  } else {
+    const daily = new Float64Array(N);
+    const seed = [...a.id].reduce((n, c) => n * 31 + c.charCodeAt(0), 7);
+    const random = rng(seed + (scenario === "plan" ? 103 : 307));
+    const plan = scenario === "rolling" ? scenarioPrefix(a, "plan") : null;
+    const budget = scenario === "rolling" ? scenarioPrefix(a, "budget") : null;
+    for (let i = 0; i < N; i++) {
+      if (scenario === "rolling") {
+        const source = i <= FACT_END_DAY ? a.prefix : i <= PLAN_END_DAY ? plan! : budget!;
+        daily[i] = source[i + 1] - source[i];
+      } else {
+        const base = a.prefix[i + 1] - a.prefix[i];
+        const factor = scenario === "plan" ? 1.04 + random() * 0.12 : 0.88 + random() * 0.10;
+        daily[i] = Math.round(base * factor / 100) * 100;
+      }
+    }
+    prefix = prefixOf(daily);
+  }
+  scenarioCache.set(key, prefix);
+  return prefix;
+}
+
+export function scenarioTotals(s: number, e: number, scenario: Scenario) {
+  let inn = 0, out = 0;
+  for (const a of LEAVES) {
+    const v = sumRange(scenarioPrefix(a, scenario), s, e);
+    if (a.dir === "in") inn += v; else out += v;
+  }
+  return { inn, out, net: inn + out, close: OPENING_BALANCE + scenarioPrefix(NET, scenario)[e + 1] };
 }

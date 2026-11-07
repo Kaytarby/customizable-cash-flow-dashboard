@@ -6,6 +6,8 @@ import { Subtotal } from "./settings";
 
 export interface ColNode {
   key: string;
+  scenario?: import("./dates").Scenario;
+  delta?: "plan" | "budget";
   level: Level | "total";
   s: number;
   e: number;

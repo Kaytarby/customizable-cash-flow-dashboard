@@ -10,7 +10,8 @@ type SetFn = (patch: Partial<Settings>) => void;
 const QUICK: { label: string; from: string; to: string }[] = [
   { label: "2024", from: "2024-01-01", to: "2024-12-31" },
   { label: "2025", from: "2025-01-01", to: "2025-12-31" },
-  { label: "Всё время", from: "2024-01-01", to: "2025-12-31" },
+  { label: "2026", from: "2026-01-01", to: "2026-12-31" },
+  { label: "Всё время", from: "2024-01-01", to: "2026-12-31" },
   { label: "4 кв. 2025", from: "2025-10-01", to: "2025-12-31" },
   { label: "Дек 2025", from: "2025-12-01", to: "2025-12-31" },
 ];

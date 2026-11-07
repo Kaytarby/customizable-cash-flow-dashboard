@@ -19,7 +19,9 @@ export const LEVEL_NAMES: Record<Level, string> = {
 /** День 0 — понедельник 1 января 2024 */
 export const BASE = Date.UTC(2024, 0, 1);
 const DAY_MS = 86400000;
-export const TOTAL_DAYS = 731; // 2024-01-01 .. 2025-12-31
+
+/** 2024-01-01 .. 2026-12-31 (1096 дней) */
+export const TOTAL_DAYS = 1096;
 
 export const MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 export const MONTHS_FULL = [
@@ -83,3 +85,31 @@ export function isoWeek(d: number): number {
   const firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
   return 1 + Math.round(((t.getTime() - firstThu.getTime()) / DAY_MS - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
 }
+
+/* ---------- сценарии данных ---------- */
+
+export type Scenario = "fact" | "plan" | "budget" | "rolling";
+
+export const SCENARIO_LABELS: Record<Scenario, string> = {
+  fact: "Факт",
+  plan: "Оперплан",
+  budget: "Бюджет",
+  rolling: "Ролинг-форкаст",
+};
+
+/** Предустановленные периоды по сценариям (2026 год) */
+export const SCENARIO_PERIODS: Record<Scenario, { from: string; to: string; label: string }> = {
+  fact: { from: "2026-01-01", to: "2026-03-15", label: "Янв — 15 марта" },
+  plan: { from: "2026-03-16", to: "2026-04-30", label: "16 марта — 30 апреля" },
+  budget: { from: "2026-05-01", to: "2026-12-31", label: "Май — Декабрь" },
+  rolling: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
+};
+
+/** Граница оперплана — конец месяца. Для 2026: конец апреля (30.04.2026) */
+export const PLAN_END_DAY = isoToDay("2026-04-30");
+
+/** Граница факта — 15 марта 2026 */
+export const FACT_END_DAY = isoToDay("2026-03-15");
+
+/** Начало бюджета — 1 мая 2026 */
+export const BUDGET_START_DAY = isoToDay("2026-05-01");

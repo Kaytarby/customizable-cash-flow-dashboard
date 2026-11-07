@@ -1,7 +1,7 @@
 import { Article, ROOTS, articleValue } from "./data";
 import { Settings } from "./settings";
 import { ColNode, buildTree, layoutColumns, Col, HeaderCell } from "./columns";
-import { LEVEL_ORDER, isoToDay, TOTAL_DAYS } from "./dates";
+import { LEVEL_ORDER, isoToDay, TOTAL_DAYS, FACT_END_DAY, PLAN_END_DAY, SCENARIO_LABELS, Scenario } from "./dates";
 
 export interface RowView {
   id: string;
@@ -89,7 +89,22 @@ export function clampRange(st: Settings) {
 
 export function buildModel(st: Settings, query: string): Model {
   const { s, e } = clampRange(st);
-  const tree: ColNode[] = buildTree(st.levels, s, e);
+  let tree: ColNode[];
+  if (st.scenario === "rolling") {
+    tree = [];
+    for (const [start, end, scenario] of [[s, Math.min(e, FACT_END_DAY), "fact"], [Math.max(s, FACT_END_DAY + 1), Math.min(e, PLAN_END_DAY), "plan"], [Math.max(s, PLAN_END_DAY + 1), e, "budget"]] as [number, number, Scenario][]) {
+      if (start > end) continue;
+      const nodes = buildTree(scenario === "budget" ? ["month"] : ["month", "week", "day"], start, end);
+      const tag = (n: ColNode) => {
+        n.key = `${scenario}:${n.key}`;
+        n.scenario = scenario;
+        n.title += ` · ${SCENARIO_LABELS[scenario]}`;
+        if (n.level === "month") n.label += ` · ${SCENARIO_LABELS[scenario]}`;
+        n.children?.forEach(tag);
+      };
+      nodes.forEach(tag); tree.push(...nodes);
+    }
+  } else tree = buildTree(st.scenario === "budget" ? ["month"] : st.levels, s, e);
   const isExpanded = (n: ColNode) => {
     const o = st.colOverrides[n.key];
     if (o !== undefined) return o;
@@ -99,19 +114,26 @@ export function buildModel(st: Settings, query: string): Model {
   const grand: ColNode | null = st.grandTotal
     ? { key: "grand", level: "total", s, e, label: "Итого", title: "Итого за выбранный период" }
     : null;
-  const { cells, cols, rows: headerRows } = layoutColumns(tree, isExpanded, st.subtotal, grand);
+  let { cells, cols, rows: headerRows } = layoutColumns(tree, isExpanded, st.subtotal, grand);
+  if (st.scenario === "compare") {
+    const metrics: { label: string; scenario: Scenario; delta?: "plan" | "budget" }[] = st.comparison === "budget"
+      ? [{ label: "Факт", scenario: "fact" }, { label: "Бюджет", scenario: "budget" }, { label: "Δ Ф−Б", scenario: "fact", delta: "budget" }]
+      : [{ label: "Факт", scenario: "fact" }, { label: "Оперплан", scenario: "plan" }, { label: "Бюджет", scenario: "budget" }, { label: "Δ Ф−О", scenario: "fact", delta: "plan" }, { label: "Δ Ф−Б", scenario: "fact", delta: "budget" }];
+    const base = cols;
+    cells = [[], []]; cols = []; headerRows = 2;
+    for (const col of base) {
+      cells[0].push({ key: col.key, node: col.node, row: 0, colspan: metrics.length, rowspan: 1, kind: "leaf" });
+      for (const metric of metrics) {
+        const node = { ...col.node, key: `${col.key}:${metric.label}`, children: undefined, label: metric.label, sub: undefined, title: `${col.node.title} · ${metric.label}`, scenario: metric.scenario, delta: metric.delta };
+        cols.push({ key: node.key, node, kind: col.kind });
+        cells[1].push({ key: node.key, node, row: 1, colspan: 1, rowspan: 1, kind: "leaf" });
+      }
+    }
+  }
 
   let rows = buildRows(st, query);
-  const calcVals = (r: RowView) => cols.map((c) => articleValue(r.art, c.node.s, c.node.e, s, st.mode));
-  const restVals = (r: RowView) =>
-    cols.map((c) => {
-      if (st.mode === "pct") {
-        const total = articleValue(r.art, c.node.s, c.node.e, s, st.mode) ?? 0;
-        return total - r.restVisible!.reduce((acc, a) => acc + (articleValue(a, c.node.s, c.node.e, s, st.mode) ?? 0), 0);
-      }
-      const total = articleValue(r.art, c.node.s, c.node.e, s, st.mode) ?? 0;
-      return total - r.restVisible!.reduce((acc, a) => acc + (articleValue(a, c.node.s, c.node.e, s, st.mode) ?? 0), 0);
-    });
+  const calcVals = (r: RowView) => cols.map((c) => cellValue(r, c, st, s));
+  const restVals = calcVals;
   let values = rows.map((r) => (r.kind === "rest" ? restVals(r) : calcVals(r)));
 
   if (st.hideEmpty) {
@@ -133,4 +155,19 @@ export function buildModel(st: Settings, query: string): Model {
   });
 
   return { rows, cols, header: cells, headerRows, values, rangeS: s, rangeE: e, heatMax };
+}
+
+/** Shared by pivot and drilldown so displayed totals always reconcile. */
+export function cellValue(r: RowView, c: Col, st: Settings, rangeStart: number): number | null {
+  const scenario = st.scenario === "compare" ? c.node.scenario ?? "fact" : st.scenario;
+  const value = (a: Article, sc: Scenario) => articleValue(a, c.node.s, c.node.e, rangeStart, st.mode, sc);
+  const one = (a: Article) => {
+    const v = value(a, scenario);
+    if (v === null || !c.node.delta) return v;
+    const other = value(a, c.node.delta);
+    return other === null ? null : v - other;
+  };
+  const total = one(r.art);
+  if (r.kind !== "rest" || total === null) return total;
+  return total - r.restVisible!.reduce((sum, a) => sum + (one(a) ?? 0), 0);
 }

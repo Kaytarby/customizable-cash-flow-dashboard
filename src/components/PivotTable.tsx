@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Drilldown } from "./Drilldown";
 import { ChevronDown, ChevronRight, EyeOff, Focus } from "lucide-react";
 import { Model, RowView } from "../lib/model";
 import { Settings } from "../lib/settings";
@@ -37,6 +39,7 @@ function highlight(name: string, q: string) {
 }
 
 export function PivotTable({ model, st, query, handlers }: { model: Model; st: Settings; query: string; handlers: PivotHandlers }) {
+  const [drill, setDrill] = useState<{ row: RowView; column: number } | null>(null);
   const { rows, cols, header, headerRows, values, heatMax } = model;
   const fmt = makeFormatter(st);
   const rowH = ROW_H[st.density];
@@ -172,7 +175,7 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
                 f.zero ? "text-ink-3" : f.neg && st.negRed ? "text-neg" : "text-ink"
               )}
             >
-              {f.text}
+              <button className="w-full rounded text-right hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent" aria-label={`Расшифровать: ${r.name}, ${c.node.title}`} onClick={() => setDrill({ row: r, column: ci })}>{f.text}</button>
             </td>
           );
         })}
@@ -182,6 +185,7 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
 
   return (
     <div className="nice-scroll h-full w-full overflow-auto">
+      {drill && <Drilldown model={model} st={st} row={drill.row} column={drill.column} onClose={() => setDrill(null)} />}
       <table className="pivot text-ink" style={{ width: tableW, minWidth: "100%" }}>
         <colgroup>
           <col style={{ width: st.labelWidth }} />
