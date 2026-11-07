@@ -19,9 +19,11 @@ export interface PivotHandlers {
 }
 
 function colWidth(st: Settings, level: string, kind: string) {
-  if (kind === "total") return Math.round(st.colWidth * 1.1);
+  if (kind === "total") return Math.round(st.colWidth * 1.15);
+  if (st.scenario === "compare") return Math.max(st.colWidth, 118);
+  if (st.scenario === "rolling" && level === "month") return Math.max(st.colWidth, 116);
   if (level === "day") return Math.max(52, Math.round(st.colWidth * 0.68));
-  if (level === "week") return Math.max(60, Math.round(st.colWidth * 0.86));
+  if (level === "week") return Math.max(64, Math.round(st.colWidth * 0.86));
   return st.colWidth;
 }
 

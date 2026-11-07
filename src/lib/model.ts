@@ -99,7 +99,7 @@ export function buildModel(st: Settings, query: string): Model {
         n.key = `${scenario}:${n.key}`;
         n.scenario = scenario;
         n.title += ` · ${SCENARIO_LABELS[scenario]}`;
-        if (n.level === "month") n.label += ` · ${SCENARIO_LABELS[scenario]}`;
+        if (n.level === "month" && scenario !== "budget") n.label += ` · ${SCENARIO_LABELS[scenario]}`;
         n.children?.forEach(tag);
       };
       nodes.forEach(tag); tree.push(...nodes);
@@ -118,8 +118,8 @@ export function buildModel(st: Settings, query: string): Model {
   if (st.scenario === "compare") {
     const metrics = [
       { label: "Бюджет", scenario: "budget" as Scenario },
-      { label: "Ролинг-форкаст", scenario: "rolling" as Scenario },
-      { label: "Δ Ролинг − бюджет", scenario: "rolling" as Scenario, delta: "budget" as "budget" },
+      { label: "Ролинг", scenario: "rolling" as Scenario },
+      { label: "Δ Р−Б", scenario: "rolling" as Scenario, delta: "budget" as "budget" },
     ];
     const base = cols;
     cells = [[], []]; cols = []; headerRows = 2;

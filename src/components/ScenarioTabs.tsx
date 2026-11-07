@@ -7,7 +7,9 @@ export function ScenarioTabs({ st, set }: { st: Settings; set: (patch: Partial<S
     {TABS.map(scenario => <button key={scenario} role="tab" aria-selected={st.scenario === scenario}
       onClick={() => {
         const period = SCENARIO_PERIODS[scenario === 'compare' ? 'rolling' : scenario];
-        set({ scenario, from: period.from, to: period.to, colOverrides: {}, detail: scenario === 'plan' || scenario === 'rolling' ? 'week' : 'month', levels: scenario === 'compare' ? ['month'] : undefined });
+        const patch: Partial<Settings> = { scenario, from: period.from, to: period.to, colOverrides: {}, detail: scenario === 'plan' || scenario === 'rolling' ? 'week' : 'month' };
+        if (scenario === 'compare') patch.levels = ['month'];
+        set(patch);
       }}
       className={cn('rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium', st.scenario === scenario ? 'border-line bg-surface text-accent' : 'border-transparent text-ink-3 hover:bg-surface-2 hover:text-ink')}>
       {scenario === 'compare' ? 'Сравнение' : SCENARIO_LABELS[scenario]}
