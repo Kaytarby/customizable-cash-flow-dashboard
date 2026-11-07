@@ -12,7 +12,7 @@ import {
 import { buildModel } from "./lib/model";
 import { exportCsv } from "./lib/exportCsv";
 import { hideNode, restoreKids, soloNode, toggleCollapse } from "./lib/rowActions";
-import { fmtFull } from "./lib/dates";
+import { fmtFull, rollingBounds } from "./lib/dates";
 import { UNIT_LABEL } from "./lib/format";
 
 function pickView(s: Settings): Partial<Settings> {
@@ -153,18 +153,17 @@ export default function App() {
       </header>
 
       <ScenarioTabs st={st} set={set} />
-      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? "Факт: 01.01–15.03.2026 → Оперплан: 16.03–30.04 → Бюджет: май–декабрь (месяцы)" : st.scenario === "compare" ? "Бюджет сопоставлен с ролинг-форкастом (факт + оперплан + бюджет) за 2026 год. Δ — ролинг-форкаст минус бюджет." : "Нажмите на сумму для расшифровки по статьям"}</div>
+      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? `Факт до ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).factEnd)} (вс) → Оперплан до ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).planEnd)} → Бюджет с ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).budgetStart)}` : st.scenario === "compare" ? "Бюджет vs ролинг-форкаст (факт+оперплан+бюджет). Δ = ролинг − бюджет. % вып.: доходы <100% красным, расходы — наоборот." : "Нажмите на сумму для расшифровки по статьям и контрагентам"}</div>
       <Toolbar st={st} set={set} query={query} setQuery={setQuery} colCount={model.cols.length} />
-      {st.kpi && <Kpis s={model.rangeS} e={model.rangeE} scenario={st.scenario === "compare" ? "fact" : st.scenario} />}
+      {st.kpi && (() => { const rb = rollingBounds(st.factCutoff, st.planEnd); return <Kpis s={model.rangeS} e={model.rangeE} scenario={st.scenario === "compare" ? "rolling" : st.scenario} bounds={{factEnd: rb.factEnd, planEnd: rb.planEnd}} />; })()}
 
       <div className="relative flex min-h-0 flex-1 gap-3">
         <main key={st.scenario} className="min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
           <PivotTable model={model} st={st} query={query} handlers={handlers} />
         </main>
-        {panel && (
-          <div className="absolute inset-y-0 right-0 z-40 xl:static xl:z-auto">
-            <SidePanel st={st} set={set} onClose={() => setPanel(false)} onReset={reset} />
-          </div>
+        {panel && (st.panelPinned
+          ? <div className="shrink-0"><SidePanel st={st} set={set} onClose={() => setPanel(false)} onReset={reset} /></div>
+          : <div className="pointer-events-none absolute inset-0 z-40 flex justify-end"><div className="pointer-events-auto h-full max-h-full py-0 pr-0"><SidePanel st={st} set={set} onClose={() => setPanel(false)} onReset={reset} floating /></div></div>
         )}
       </div>
     </div>

@@ -7,6 +7,8 @@ export type Density = "compact" | "normal" | "comfy";
 export interface Settings {
   scenario: Scenario | "compare";
   comparison: "all" | "budget";
+  factCutoff: string;
+  planEnd: string;
   levels: Level[];
   detail: Level;
   colOverrides: Record<string, boolean>;
@@ -31,6 +33,7 @@ export interface Settings {
   hideEmpty: boolean;
   restRow: boolean;
   theme: "light" | "dark";
+  panelPinned: boolean;
   collapsedRows: string[];
   hiddenRows: string[];
 }
@@ -43,6 +46,8 @@ export function collapseToLevel(level: number): string[] {
 export const DEFAULTS: Settings = {
   scenario: "fact",
   comparison: "all",
+  factCutoff: "2026-03-15",
+  planEnd: "2026-04-30",
   levels: ["year", "quarter", "month", "week", "day"],
   detail: "month",
   colOverrides: {},
@@ -67,6 +72,7 @@ export const DEFAULTS: Settings = {
   hideEmpty: false,
   restRow: true,
   theme: "light",
+  panelPinned: true,
   collapsedRows: collapseToLevel(3),
   hiddenRows: [],
 };
@@ -115,7 +121,7 @@ export function saveViews(v: SavedView[]) {
 
 /** ключи, которые входят в «вид» (без темы) */
 export const VIEW_KEYS: (keyof Settings)[] = [
-  "scenario", "comparison", "levels", "detail", "colOverrides", "from", "to", "subtotal", "grandTotal", "mode", "unit", "decimals",
+  "scenario", "comparison", "factCutoff", "planEnd", "levels", "detail", "colOverrides", "from", "to", "subtotal", "grandTotal", "mode", "unit", "decimals",
   "brackets", "negRed", "showZeros", "heat", "density", "colWidth", "labelWidth", "gridlines", "zebra",
   "weekendTint", "kpi", "hideEmpty", "restRow", "collapsedRows", "hiddenRows",
 ];

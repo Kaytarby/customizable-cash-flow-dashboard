@@ -20,7 +20,7 @@ test('main-area scenario tabs expose all five sheets',()=>{
 });
 test('comparison tab shows rolling vs budget label',()=>{
   const html = renderToStaticMarkup(<ScenarioTabs st={{...DEFAULTS,scenario:'compare'}} set={()=>{}} />);
-  assert.ok(html.includes('Ролинг-форкаст − бюджет'));
+  assert.ok(html.includes('Бюджет vs Ролинг'));
 });
 test('pivot amounts provide keyboard-accessible drilldown buttons',()=>{
   const model=buildModel({...DEFAULTS,levels:['month'],grandTotal:false},'');

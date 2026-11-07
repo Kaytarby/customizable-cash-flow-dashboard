@@ -110,18 +110,47 @@ export function sundayOfWeek(day: number): number {
 }
 
 /** Граница факта — строго воскресенье недели. 15.03.2026 = вс */
-export const FACT_END_DAY = sundayOfWeek(isoToDay("2026-03-15"));
+export const DEFAULT_FACT_CUTOFF = "2026-03-15";
+export const DEFAULT_PLAN_END = "2026-04-30";
+export const FACT_END_DAY = sundayOfWeek(isoToDay(DEFAULT_FACT_CUTOFF));
 
 /** Граница оперплана — строго последний день месяца. 30.04.2026 */
-export const PLAN_END_DAY = endOfMonth(isoToDay("2026-04-30"));
+export const PLAN_END_DAY = endOfMonth(isoToDay(DEFAULT_PLAN_END));
 
 /** Начало бюджета — день после конца оперплана */
 export const BUDGET_START_DAY = PLAN_END_DAY + 1;
 
 /** Предустановленные периоды по сценариям (2026 год) */
-export const SCENARIO_PERIODS: Record<Scenario, { from: string; to: string; label: string }> = {
-  fact: { from: "2026-01-01", to: dayToIso(FACT_END_DAY), label: `Янв — ${fmtFull(FACT_END_DAY)} (вс)` },
-  plan: { from: dayToIso(FACT_END_DAY + 1), to: dayToIso(PLAN_END_DAY), label: `${fmtFull(FACT_END_DAY + 1)} — ${fmtFull(PLAN_END_DAY)}` },
-  budget: { from: dayToIso(BUDGET_START_DAY), to: "2026-12-31", label: `${fmtFull(BUDGET_START_DAY)} — Дек` },
-  rolling: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
-};
+export function scenarioPeriods(factCutoffIso: string, planEndIso: string): Record<Scenario, { from: string; to: string; label: string }> {
+  const factEnd = sundayOfWeek(isoToDay(factCutoffIso));
+  const planEnd = endOfMonth(isoToDay(planEndIso));
+  const budgetStart = planEnd + 1;
+  return {
+    fact: { from: "2026-01-01", to: dayToIso(factEnd), label: `Янв — ${fmtFull(factEnd)} (вс)` },
+    plan: { from: dayToIso(factEnd + 1), to: dayToIso(planEnd), label: `${fmtFull(factEnd + 1)} — ${fmtFull(planEnd)}` },
+    budget: { from: dayToIso(budgetStart), to: "2026-12-31", label: `${fmtFull(budgetStart)} — Дек` },
+    rolling: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
+  };
+}
+
+
+export function normalizeFactCutoff(iso: string): string {
+  const d = isoToDay(iso);
+  if (Number.isNaN(d)) return iso;
+  return dayToIso(sundayOfWeek(Math.max(0, Math.min(TOTAL_DAYS - 1, d))));
+}
+
+export function normalizePlanEnd(iso: string): string {
+  const d = isoToDay(iso);
+  if (Number.isNaN(d)) return iso;
+  return dayToIso(endOfMonth(Math.max(0, Math.min(TOTAL_DAYS - 1, d))));
+}
+
+export function rollingBounds(factCutoffIso: string, planEndIso: string) {
+  const factEnd = sundayOfWeek(isoToDay(factCutoffIso));
+  const planEnd = endOfMonth(isoToDay(planEndIso));
+  return { factEnd, planEnd, budgetStart: planEnd + 1 };
+}
+
+/** Legacy defaults */
+export const SCENARIO_PERIODS = scenarioPeriods("2026-03-15", "2026-04-30");

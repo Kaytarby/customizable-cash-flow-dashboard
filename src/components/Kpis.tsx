@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Wallet, TrendingUp, TrendingDown, Scale } from "lucide-react";
-import { scenarioTotals } from "../lib/data";
+import { scenarioTotals, RollingBounds } from "../lib/data";
 import { compactMoney } from "../lib/format";
 import { fmtFull, Scenario } from "../lib/dates";
 import { cn } from "../utils/cn";
@@ -35,13 +35,13 @@ function Card({
   );
 }
 
-export function Kpis({ s, e, scenario }: { s: number; e: number; scenario: Scenario }) {
+export function Kpis({ s, e, scenario, bounds }: { s: number; e: number; scenario: Scenario; bounds?: RollingBounds }) {
   const len = e - s + 1;
   const ps = s - len;
   const pe = s - 1;
   const hasPrev = ps >= 0;
-  const cur = scenarioTotals(s, e, scenario);
-  const prev = hasPrev ? scenarioTotals(ps, pe, scenario) : null;
+  const cur = scenarioTotals(s, e, scenario, bounds);
+  const prev = hasPrev ? scenarioTotals(ps, pe, scenario, bounds) : null;
   const d = (a: number, b?: number) => (b === undefined || b === 0 ? null : ((a - b) / Math.abs(b)) * 100);
   return (
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

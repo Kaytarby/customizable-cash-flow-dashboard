@@ -1,5 +1,5 @@
 import { ChevronsDownUp, ChevronsUpDown, Search, X, Calendar } from "lucide-react";
-import { LEVELS, LEVEL_NAMES, LEVEL_ORDER, Level, dayToIso, TOTAL_DAYS } from "../lib/dates";
+import { LEVELS, LEVEL_NAMES, LEVEL_ORDER, Level, dayToIso, TOTAL_DAYS, normalizeFactCutoff, normalizePlanEnd, scenarioPeriods, rollingBounds, fmtFull } from "../lib/dates";
 import { Settings } from "../lib/settings";
 import { UNIT_LABEL } from "../lib/format";
 import { Segmented, SelectBox, IconButton } from "./ui";
@@ -78,6 +78,31 @@ export function Toolbar({ st, set, query, setQuery, colCount }: { st: Settings; 
               {q.label}
             </button>
           ))}
+        </div>
+      </Group>
+
+      <Group label="Границы ролинга">
+        <div className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-2 text-[11px]" title="Факт строго до воскресенья недели; оперплан строго до конца месяца">
+          <span className="text-ink-3 whitespace-nowrap">Факт до</span>
+          <input type="date" value={st.factCutoff} min={minIso} max={maxIso}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const factCutoff = normalizeFactCutoff(e.target.value);
+              const patch: Partial<Settings> = { factCutoff, colOverrides: {} };
+              if (st.scenario === 'fact' || st.scenario === 'rolling' || st.scenario === 'compare') { const per = scenarioPeriods(factCutoff, st.planEnd)[st.scenario === 'compare' ? 'rolling' : st.scenario as any]; patch.from = per.from; patch.to = per.to; }
+              set(patch);
+            }}
+            className="num w-[104px] bg-transparent text-xs text-ink outline-none" />
+          <span className="text-ink-3 whitespace-nowrap border-l border-line pl-1.5">Оперплан до</span>
+          <input type="date" value={st.planEnd} min={minIso} max={maxIso}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const planEnd = normalizePlanEnd(e.target.value);
+              const patch: Partial<Settings> = { planEnd, colOverrides: {} };
+              if (st.scenario === 'plan' || st.scenario === 'budget' || st.scenario === 'rolling' || st.scenario === 'compare') { const per = scenarioPeriods(st.factCutoff, planEnd)[st.scenario === 'compare' ? 'rolling' : st.scenario as any]; patch.from = per.from; patch.to = per.to; }
+              set(patch);
+            }}
+            className="num w-[104px] bg-transparent text-xs text-ink outline-none" />
         </div>
       </Group>
 

@@ -1,7 +1,7 @@
-import { Article, ROOTS, articleValue } from "./data";
+import { Article, ROOTS, articleValue, RollingBounds } from "./data";
 import { Settings } from "./settings";
 import { ColNode, buildTree, layoutColumns, Col, HeaderCell } from "./columns";
-import { LEVEL_ORDER, isoToDay, TOTAL_DAYS, FACT_END_DAY, PLAN_END_DAY, SCENARIO_LABELS, Scenario } from "./dates";
+import { LEVEL_ORDER, isoToDay, TOTAL_DAYS, rollingBounds, SCENARIO_LABELS, Scenario } from "./dates";
 
 export interface RowView {
   id: string;
@@ -90,9 +90,11 @@ export function clampRange(st: Settings) {
 export function buildModel(st: Settings, query: string): Model {
   const { s, e } = clampRange(st);
   let tree: ColNode[];
+  const rb = rollingBounds(st.factCutoff, st.planEnd);
+  const bounds: RollingBounds = { factEnd: rb.factEnd, planEnd: rb.planEnd };
   if (st.scenario === "rolling") {
     tree = [];
-    for (const [start, end, scenario] of [[s, Math.min(e, FACT_END_DAY), "fact"], [Math.max(s, FACT_END_DAY + 1), Math.min(e, PLAN_END_DAY), "plan"], [Math.max(s, PLAN_END_DAY + 1), e, "budget"]] as [number, number, Scenario][]) {
+    for (const [start, end, scenario] of [[s, Math.min(e, rb.factEnd), "fact"], [Math.max(s, rb.factEnd + 1), Math.min(e, rb.planEnd), "plan"], [Math.max(s, rb.planEnd + 1), e, "budget"]] as [number, number, Scenario][]) {
       if (start > end) continue;
       const nodes = buildTree(scenario === "budget" ? ["month"] : ["month", "week", "day"], start, end);
       const tag = (n: ColNode) => {
@@ -135,7 +137,7 @@ export function buildModel(st: Settings, query: string): Model {
   }
 
   let rows = buildRows(st, query);
-  const calcVals = (r: RowView) => cols.map((c) => cellValue(r, c, st, s));
+  const calcVals = (r: RowView) => cols.map((c) => cellValue(r, c, st, s, bounds));
   const restVals = calcVals;
   let values = rows.map((r) => (r.kind === "rest" ? restVals(r) : calcVals(r)));
 
@@ -161,9 +163,9 @@ export function buildModel(st: Settings, query: string): Model {
 }
 
 /** Shared by pivot and drilldown so displayed totals always reconcile. */
-export function cellValue(r: RowView, c: Col, st: Settings, rangeStart: number): number | null {
+export function cellValue(r: RowView, c: Col, st: Settings, rangeStart: number, bounds?: RollingBounds): number | null {
   const scenario = st.scenario === "compare" ? c.node.scenario ?? "fact" : st.scenario;
-  const value = (a: Article, sc: Scenario) => articleValue(a, c.node.s, c.node.e, rangeStart, st.mode, sc);
+  const value = (a: Article, sc: Scenario) => articleValue(a, c.node.s, c.node.e, rangeStart, st.mode, sc, bounds);
   if (c.node.pctExec) {
     const plan = value(r.art, "budget");
     const actual = value(r.art, scenario);

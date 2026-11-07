@@ -1,5 +1,7 @@
 import { TOTAL_DAYS, dayToDate, isoToDay, dow, Scenario, FACT_END_DAY, PLAN_END_DAY } from "./dates";
 
+export interface RollingBounds { factEnd: number; planEnd: number; }
+
 export type Dir = "in" | "out";
 export type Kind = "group" | "leaf" | "calc";
 
@@ -223,15 +225,15 @@ const REVENUE = BY_ID.get("op_in")!;
 export type Mode = "sum" | "cum" | "pct";
 
 /** значение статьи за период [s,e] */
-export function articleValue(a: Article, s: number, e: number, rangeStart: number, mode: Mode, scenario: Scenario = "fact"): number | null {
-  const net = scenarioPrefix(NET, scenario);
+export function articleValue(a: Article, s: number, e: number, rangeStart: number, mode: Mode, scenario: Scenario = "fact", bounds?: RollingBounds): number | null {
+  const net = scenarioPrefix(NET, scenario, bounds);
   if (a.kind === "calc" && a.calc === "open") return mode === "pct" ? null : OPENING_BALANCE + net[s];
   if (a.kind === "calc" && a.calc === "close") return mode === "pct" ? null : OPENING_BALANCE + net[e + 1];
   const from = mode === "cum" ? rangeStart : s;
-  const prefix = scenarioPrefix(a, scenario);
+  const prefix = scenarioPrefix(a, scenario, bounds);
   const v = prefix[e + 1] - prefix[from];
   if (mode === "pct") {
-    const revenue = scenarioPrefix(REVENUE, scenario);
+    const revenue = scenarioPrefix(REVENUE, scenario, bounds);
     const rev = revenue[e + 1] - revenue[from];
     return rev ? (v / rev) * 100 : 0;
   }
@@ -244,16 +246,17 @@ export function sumRange(prefix: Float64Array, s: number, e: number) {
 
 // Each scenario shares the article tree, but owns deterministic daily values.
 const scenarioCache = new Map<string, Float64Array>();
-export function scenarioPrefix(a: Article, scenario: Scenario): Float64Array {
+export function scenarioPrefix(a: Article, scenario: Scenario, bounds?: RollingBounds): Float64Array {
   if (scenario === "fact") return a.prefix;
-  const key = `${scenario}:${a.id}`;
+  const rb = bounds ?? { factEnd: FACT_END_DAY, planEnd: PLAN_END_DAY };
+  const key = scenario === "rolling" ? `rolling:${rb.factEnd}:${rb.planEnd}:${a.id}` : `${scenario}:${a.id}`;
   const cached = scenarioCache.get(key);
   if (cached) return cached;
   let prefix: Float64Array;
   if (a.children || a.calc === "net") {
     prefix = new Float64Array(N + 1);
     for (const child of a.children ?? groups) {
-      const cp = scenarioPrefix(child, scenario);
+      const cp = scenarioPrefix(child, scenario, bounds);
       for (let i = 0; i <= N; i++) prefix[i] += cp[i];
     }
   } else if (a.kind === "calc") {
@@ -262,11 +265,11 @@ export function scenarioPrefix(a: Article, scenario: Scenario): Float64Array {
     const daily = new Float64Array(N);
     const seed = [...a.id].reduce((n, c) => n * 31 + c.charCodeAt(0), 7);
     const random = rng(seed + (scenario === "plan" ? 103 : 307));
-    const plan = scenario === "rolling" ? scenarioPrefix(a, "plan") : null;
-    const budget = scenario === "rolling" ? scenarioPrefix(a, "budget") : null;
+    const plan = scenario === "rolling" ? scenarioPrefix(a, "plan", bounds) : null;
+    const budget = scenario === "rolling" ? scenarioPrefix(a, "budget", bounds) : null;
     for (let i = 0; i < N; i++) {
       if (scenario === "rolling") {
-        const source = i <= FACT_END_DAY ? a.prefix : i <= PLAN_END_DAY ? plan! : budget!;
+        const source = i <= rb.factEnd ? a.prefix : i <= rb.planEnd ? plan! : budget!;
         daily[i] = source[i + 1] - source[i];
       } else {
         const base = a.prefix[i + 1] - a.prefix[i];
@@ -281,8 +284,8 @@ export function scenarioPrefix(a: Article, scenario: Scenario): Float64Array {
 }
 
 const COUNTERPARTIES = ["ООО Альфа", "ООО Вектор", "АО Меридиан", "ООО Север", "ИП Смирнов"];
-export function counterpartyValues(a: Article, s: number, e: number, rangeStart: number, mode: Mode, scenario: Scenario) {
-  const amount = articleValue(a, s, e, rangeStart, mode, scenario) ?? 0;
+export function counterpartyValues(a: Article, s: number, e: number, rangeStart: number, mode: Mode, scenario: Scenario, bounds?: RollingBounds) {
+  const amount = articleValue(a, s, e, rangeStart, mode, scenario, bounds) ?? 0;
   if (a.kind === "calc" || amount === 0) return [{ name: "Без контрагента", value: amount }];
   const hash = [...a.id].reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const shares = COUNTERPARTIES.map((_, i) => 1 + ((hash + i * 13) % 9));
@@ -295,11 +298,11 @@ export function counterpartyValues(a: Article, s: number, e: number, rangeStart:
   });
 }
 
-export function scenarioTotals(s: number, e: number, scenario: Scenario) {
+export function scenarioTotals(s: number, e: number, scenario: Scenario, bounds?: RollingBounds) {
   let inn = 0, out = 0;
   for (const a of LEAVES) {
-    const v = sumRange(scenarioPrefix(a, scenario), s, e);
+    const v = sumRange(scenarioPrefix(a, scenario, bounds), s, e);
     if (a.dir === "in") inn += v; else out += v;
   }
-  return { inn, out, net: inn + out, close: OPENING_BALANCE + scenarioPrefix(NET, scenario)[e + 1] };
+  return { inn, out, net: inn + out, close: OPENING_BALANCE + scenarioPrefix(NET, scenario, bounds)[e + 1] };
 }

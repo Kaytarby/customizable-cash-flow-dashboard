@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Focus, X, RotateCcw } from "lucide-react";
+import { Eye, EyeOff, Focus, X, RotateCcw, Pin, PinOff } from "lucide-react";
 import { Article, ROOTS, MAX_GROUP_DEPTH } from "../lib/data";
 import { Settings, collapseToLevel } from "../lib/settings";
 import { hideAllLeaves, hideAllNested, soloNode, toggleVisible } from "../lib/rowActions";
@@ -149,10 +149,10 @@ function ViewTab({ st, set }: { st: Settings; set: SetFn }) {
   );
 }
 
-export function SidePanel({ st, set, onClose, onReset }: { st: Settings; set: SetFn; onClose: () => void; onReset: () => void }) {
+export function SidePanel({ st, set, onClose, onReset, floating }: { st: Settings; set: SetFn; onClose: () => void; onReset: () => void; floating?: boolean }) {
   const [tab, setTab] = useState<"rows" | "view">("rows");
   return (
-    <aside className="flex h-full w-[320px] shrink-0 flex-col rounded-xl border border-line bg-surface shadow-sm">
+    <aside className={cn("flex h-full w-[320px] shrink-0 flex-col rounded-xl border border-line bg-surface", floating ? "shadow-2xl" : "shadow-sm")}>
       <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
         <Segmented
           value={tab}
@@ -162,9 +162,14 @@ export function SidePanel({ st, set, onClose, onReset }: { st: Settings; set: Se
             { value: "view", label: "Вид и формат" },
           ]}
         />
-        <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-lg text-ink-2 hover:bg-surface-2" aria-label="Закрыть">
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => set({ panelPinned: !st.panelPinned })} className={cn("grid h-7 w-7 place-items-center rounded-lg hover:bg-surface-2", st.panelPinned ? "text-accent" : "text-ink-2")} aria-label={st.panelPinned ? "Открепить панель" : "Закрепить панель"} title={st.panelPinned ? "Открепить (всплывающая)" : "Закрепить (рядом с таблицей)"}>
+            {st.panelPinned ? <Pin size={15} /> : <PinOff size={15} />}
+          </button>
+          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-lg text-ink-2 hover:bg-surface-2" aria-label="Закрыть">
+            <X size={16} />
+          </button>
+        </div>
       </div>
       <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-3 py-3">{tab === "rows" ? <ArticlesTab st={st} set={set} /> : <ViewTab st={st} set={set} />}</div>
       <div className="border-t border-line p-2.5">
