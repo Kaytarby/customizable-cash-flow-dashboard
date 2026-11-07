@@ -88,13 +88,14 @@ export function isoWeek(d: number): number {
 
 /* ---------- сценарии данных ---------- */
 
-export type Scenario = "fact" | "plan" | "budget" | "rolling";
+export type Scenario = "fact" | "plan" | "budget" | "rolling" | "planfact";
 
 export const SCENARIO_LABELS: Record<Scenario, string> = {
   fact: "Факт",
   plan: "Оперплан",
   budget: "Бюджет",
   rolling: "Ролинг-форкаст",
+  planfact: "План-факт анализ",
 };
 
 /** Конец месяца для заданного дня */
@@ -130,6 +131,7 @@ export function scenarioPeriods(factCutoffIso: string, planEndIso: string): Reco
     plan: { from: dayToIso(factEnd + 1), to: dayToIso(planEnd), label: `${fmtFull(factEnd + 1)} — ${fmtFull(planEnd)}` },
     budget: { from: dayToIso(budgetStart), to: "2026-12-31", label: `${fmtFull(budgetStart)} — Дек` },
     rolling: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
+    planfact: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
   };
 }
 

@@ -106,6 +106,8 @@ export function buildModel(st: Settings, query: string): Model {
       };
       nodes.forEach(tag); tree.push(...nodes);
     }
+  } else if (st.scenario === "planfact") {
+    tree = buildTree(["month"], s, e);
   } else tree = buildTree(st.scenario === "budget" || st.scenario === "compare" ? ["month"] : st.levels, s, e);
   const isExpanded = (n: ColNode) => {
     const o = st.colOverrides[n.key];
@@ -117,19 +119,26 @@ export function buildModel(st: Settings, query: string): Model {
     ? { key: "grand", level: "total", s, e, label: "Итого", title: "Итого за выбранный период" }
     : null;
   let { cells, cols, rows: headerRows } = layoutColumns(tree, isExpanded, st.subtotal, grand);
-  if (st.scenario === "compare") {
-    const metrics = [
-      { label: "Бюджет", scenario: "budget" as Scenario },
-      { label: "Ролинг", scenario: "rolling" as Scenario },
-      { label: "Δ Р−Б", scenario: "rolling" as Scenario, delta: "budget" as "budget" },
-      { label: "% вып.", scenario: "rolling" as Scenario, pctExec: true as const },
-    ];
+  if (st.scenario === "compare" || st.scenario === "planfact") {
+    const metrics = st.scenario === "compare"
+      ? [
+          { label: "Бюджет", scenario: "budget" as Scenario },
+          { label: "Ролинг", scenario: "rolling" as Scenario },
+          { label: "Δ Р−Б", scenario: "rolling" as Scenario, delta: "budget" as "budget" },
+          { label: "% вып.", scenario: "rolling" as Scenario, pctExec: true as const },
+        ]
+      : [
+          { label: "План (бюджет)", scenario: "budget" as Scenario },
+          { label: "Факт", scenario: "fact" as Scenario },
+          { label: "Отклонение", scenario: "fact" as Scenario, delta: "budget" as "budget" },
+          { label: "% отклонения", scenario: "fact" as Scenario, pctDev: true as const },
+        ];
     const base = cols;
     cells = [[], []]; cols = []; headerRows = 2;
     for (const col of base) {
       cells[0].push({ key: col.key, node: col.node, row: 0, colspan: metrics.length, rowspan: 1, kind: "leaf" });
       for (const metric of metrics) {
-        const node = { ...col.node, key: `${col.key}:${metric.label}`, children: undefined, label: metric.label, sub: undefined, title: `${col.node.title} · ${metric.label}`, scenario: metric.scenario, delta: metric.delta, pctExec: 'pctExec' in metric ? metric.pctExec : undefined };
+        const node = { ...col.node, key: `${col.key}:${metric.label}`, children: undefined, label: metric.label, sub: undefined, title: `${col.node.title} · ${metric.label}`, scenario: metric.scenario, delta: metric.delta, pctExec: 'pctExec' in metric ? metric.pctExec : undefined, pctDev: 'pctDev' in metric ? metric.pctDev : undefined };
         cols.push({ key: node.key, node, kind: col.kind });
         cells[1].push({ key: node.key, node, row: 1, colspan: 1, rowspan: 1, kind: "leaf" });
       }
@@ -171,11 +180,18 @@ export function cellValue(r: RowView, c: Col, st: Settings, rangeStart: number, 
     const actual = value(r.art, scenario);
     if (plan === null || actual === null) return null;
     if (plan === 0) return actual === 0 ? 100 : null;
-    // Always actual/plan*100. Use absolute values for outflows (stored as negative in some models) so % is intuitive.
     const pMag = Math.abs(plan);
     const aMag = Math.abs(actual);
     if (pMag === 0) return aMag === 0 ? 100 : null;
     return (aMag / pMag) * 100;
+  }
+  if (c.node.pctDev) {
+    const plan = value(r.art, "budget");
+    const actual = value(r.art, scenario);
+    if (plan === null || actual === null) return null;
+    const pMag = Math.abs(plan);
+    if (pMag === 0) return actual === 0 ? 0 : null;
+    return ((Math.abs(actual) - pMag) / pMag) * 100;
   }
   const one = (a: Article) => {
     const v = value(a, scenario);

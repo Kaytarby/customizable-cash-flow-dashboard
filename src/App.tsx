@@ -153,9 +153,9 @@ export default function App() {
       </header>
 
       <ScenarioTabs st={st} set={set} />
-      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? `Факт до ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).factEnd)} (вс) → Оперплан до ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).planEnd)} → Бюджет с ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).budgetStart)}` : st.scenario === "compare" ? "Бюджет vs ролинг-форкаст (факт+оперплан+бюджет). Δ = ролинг − бюджет. % вып.: доходы <100% красным, расходы — наоборот." : "Нажмите на сумму для расшифровки по статьям и контрагентам"}</div>
+      <div className="text-xs text-ink-3">Синтетические данные · {st.scenario === "rolling" ? `Факт до ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).factEnd)} (вс) → Оперплан до ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).planEnd)} → Бюджет с ${fmtFull(rollingBounds(st.factCutoff,st.planEnd).budgetStart)}` : st.scenario === "compare" ? "Бюджет vs ролинг-форкаст (факт+оперплан+бюджет). Δ = ролинг − бюджет. % вып.: доходы <100% красным, расходы — наоборот." : "План-факт анализ: План (бюджет) / Факт / Отклонение (факт−план) / % отклонения. Доходы: отклонение >0 — зелёный (перевыполнение), <0 — красный. Расходы: наоборот (перерасход — красный, экономия — зелёный)."}</div>
       <Toolbar st={st} set={set} query={query} setQuery={setQuery} colCount={model.cols.length} />
-      {st.kpi && (() => { const rb = rollingBounds(st.factCutoff, st.planEnd); return <Kpis s={model.rangeS} e={model.rangeE} scenario={st.scenario === "compare" ? "rolling" : st.scenario} bounds={{factEnd: rb.factEnd, planEnd: rb.planEnd}} />; })()}
+      {st.kpi && (() => { const rb = rollingBounds(st.factCutoff, st.planEnd); return <Kpis s={model.rangeS} e={model.rangeE} scenario={st.scenario === "compare" || st.scenario === "planfact" ? "fact" : st.scenario} bounds={{factEnd: rb.factEnd, planEnd: rb.planEnd}} />; })()}
 
       <div className="relative flex min-h-0 flex-1 gap-3">
         <main key={st.scenario} className="min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface shadow-sm">

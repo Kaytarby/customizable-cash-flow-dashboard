@@ -20,7 +20,7 @@ export interface PivotHandlers {
 
 function colWidth(st: Settings, level: string, kind: string) {
   if (kind === "total") return Math.round(st.colWidth * 1.15);
-  if (st.scenario === "compare") return Math.max(st.colWidth, 118);
+  if (st.scenario === "compare" || st.scenario === "planfact") return Math.max(st.colWidth, 118);
   if (st.scenario === "rolling" && level === "month") return Math.max(st.colWidth, 116);
   if (level === "day") return Math.max(52, Math.round(st.colWidth * 0.68));
   if (level === "week") return Math.max(64, Math.round(st.colWidth * 0.86));
@@ -156,16 +156,24 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
         {cols.map((c, ci) => {
           const v = values[ri][ci];
           const isPctExec = !!c.node.pctExec;
+          const isPctDev = !!c.node.pctDev;
           const f = isPctExec
             ? (v === null ? { text: "–", neg: false, zero: true } : { text: `${v.toFixed(1)}%`, neg: v < 100, zero: false })
-            : fmt(v);
-          // Execution %: income — <100% red, >=100% green; expense — наоборот (<100% green/saved, >=100% red/overspent)
+            : isPctDev
+              ? (v === null ? { text: "–", neg: false, zero: true } : { text: `${v.toFixed(1)}%`, neg: v < 0, zero: false })
+              : fmt(v);
+          // Execution % (pctExec): income <100% red, >=100% green; expense — наоборот
+          // Deviation % (pctDev): income >0 green (перевыполнение), <0 red; expense — наоборот (перерасход red, экономия green)
           let execColor = "";
           if (isPctExec && v !== null && !isCalc) {
             const isOut = r.art.dir === "out" || ["op_out","cogs","staff","rent","mkt","tax","admin","inv_capex","inv_dev","loan_main","loan_int","owner_div","inv","fin"].includes(r.art.id) || (r.kind === "group" && r.art.children?.every(ch => ch.dir === "out"));
-            // pctExec = actual/plan*100 (both positive magnitudes for comparison). >=100 means more than planned.
             const good = isOut ? v < 100 : v >= 100;
             const onTarget = Math.abs(v - 100) < 0.05;
+            execColor = onTarget ? "text-ink font-medium" : good ? "text-pos font-medium" : "text-neg font-medium";
+          } else if (isPctDev && v !== null && !isCalc) {
+            const isOut = r.art.dir === "out" || ["op_out","cogs","staff","rent","mkt","tax","admin","inv_capex","inv_dev","loan_main","loan_int","owner_div","inv","fin"].includes(r.art.id) || (r.kind === "group" && r.art.children?.every(ch => ch.dir === "out"));
+            const good = isOut ? v < 0 : v > 0;
+            const onTarget = Math.abs(v) < 0.05;
             execColor = onTarget ? "text-ink font-medium" : good ? "text-pos font-medium" : "text-neg font-medium";
           }
           const isSub = c.kind === "sub";
