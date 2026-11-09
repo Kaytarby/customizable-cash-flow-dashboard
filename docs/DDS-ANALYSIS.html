@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ДДС-дашборд — анализ проекта и критический разбор</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin:0; padding:0 20px 72px; background:#eef1f6; color:#12171f;
+  font:15px/1.62 -apple-system,"Segoe UI","Inter",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; }
+main { max-width:1000px; margin:0 auto; background:#fff; padding:48px 56px 64px;
+  box-shadow:0 1px 2px rgba(16,24,40,.06),0 14px 36px -14px rgba(16,24,40,.22); border-radius:14px; }
+h1,h2,h3,h4,h5 { line-height:1.25; letter-spacing:-.011em; color:#0b1220; }
+h1 { font-size:30px; margin:0 0 18px; padding-bottom:12px; border-bottom:2px solid #e5e9f0; }
+h2 { font-size:23px; margin:46px 0 14px; padding:10px 14px; background:#f4f7fc; border-left:4px solid #2f5bea; border-radius:4px; }
+h3 { font-size:18px; margin:30px 0 10px; }
+h4 { font-size:15.5px; margin:22px 0 8px; }
+h5 { font-size:14.5px; margin:18px 0 6px; color:#28313f; }
+p { margin:10px 0; }
+a { color:#2550d8; text-decoration:none; border-bottom:1px solid rgba(37,80,216,.28); }
+a:hover { border-bottom-color:#2550d8; }
+hr { border:0; border-top:1px solid #e5e9f0; margin:34px 0; }
+ul,ol { padding-left:24px; } li { margin:4px 0; }
+li>ul,li>ol { margin:4px 0; }
+code { font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace; font-size:.875em;
+  background:#f1f4f9; border:1px solid #e3e8f0; border-radius:4px; padding:1px 5px; }
+pre { background:#0f1621; color:#dbe4f0; border-radius:10px; padding:16px 18px; overflow-x:auto; font-size:12.5px; line-height:1.55; }
+pre code { background:none; border:0; padding:0; color:inherit; font-size:inherit; }
+blockquote { margin:16px 0; padding:2px 18px; border-left:3px solid #c9d3e4; color:#46536a; }
+table { border-collapse:collapse; width:100%; margin:18px 0; font-size:13.5px; }
+th,td { border:1px solid #e3e8f0; padding:8px 10px; text-align:left; vertical-align:top; }
+th { background:#f6f8fc; font-weight:600; }
+tbody tr:nth-child(even) td { background:#fbfcfe; }
+td:first-child,th:first-child { white-space:nowrap; }
+strong { color:#0b1220; }
+.toc { background:#f8fafd; border:1px solid #e3e8f0; border-radius:10px; padding:16px 22px; margin:26px 0 8px; }
+.toc>ul { margin:0; padding-left:18px; list-style:disc; }
+.toc ul { list-style:none; padding-left:16px; }
+.toc li { margin:3px 0; } .toc a { border:0; }
+.toc .toctitle { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:#6b7788; font-weight:700; margin:0 0 8px; }
+@media print { body{background:#fff;padding:0;font-size:10.5pt} main{box-shadow:none;max-width:none;padding:0;border-radius:0}
+  pre{background:#f4f6fa;color:#12171f;border:1px solid #dfe5ee} h1,h2,h3{break-after:avoid} table,pre{break-inside:avoid}
+  a{color:inherit;border:0} h2{background:none;border-left:0;padding:0;border-bottom:1px solid #dfe5ee;border-radius:0} }
+@media (max-width:720px){ main{padding:28px 20px 40px;border-radius:0} body{padding:0} }
+</style>
+</head>
+<body>
+<main>
+<h1 id="-re-">ДДС-дашборд: анализ проекта, критический разбор и RE-скиллы</h1>
+<p><strong>Репозиторий:</strong> Kaytarby/customizable-cash-flow-dashboard · <strong>Ветка:</strong> arena/d0b1116e-customizable-cash-flow-dashboa (HEAD 9fdde66, база 36b6fc0) · <strong>Дата:</strong> 2026-11-09</p>
+<p>Документ объединяет два раздела: <strong>Часть I</strong> — контекст проекта, доменная модель, инварианты и критический разбор дефектов с воспроизведением; <strong>Часть II</strong> — обзор GitHub-скиллов для обратного реинжиниринга и критическая оценка их применимости.</p>
+<div class="toc">
+<ul>
+<li><a href="#-re-">ДДС-дашборд: анализ проекта, критический разбор и RE-скиллы</a><ul>
+<li><a href="#i">Часть I. Контекст проекта и критический разбор</a><ul>
+<li><a href="#0">0. Как читать этот документ</a></li>
+<li><a href="#1-llm">1. Сжатый контекст (можно копировать в LLM целиком)</a></li>
+<li><a href="#2">2. Что это за продукт</a></li>
+<li><a href="#3">3. Статус и проверки (что реально работает)</a></li>
+<li><a href="#4">4. Технологии и окружение</a></li>
+<li><a href="#5">5. Карта модулей</a></li>
+<li><a href="#6">6. Поток данных и вычислений</a></li>
+<li><a href="#7">7. Доменная модель</a></li>
+<li><a href="#8">8. Замеры (для оценки масштаба)</a></li>
+<li><a href="#9">9. Критический разбор</a></li>
+<li><a href="#10">10. Приложение: как воспроизвести проверки</a></li>
+</ul>
+</li>
+<li><a href="#ii-github-">Часть II. GitHub-скиллы для обратного реинжиниринга</a><ul>
+<li><a href="#1-reverse-engineering">1. Сначала о терминах: «reverse engineering» — это два разных занятия</a></li>
+<li><a href="#2-api">2. Шорт-лист (проверено по API)</a></li>
+<li><a href="#3_1">3. Критическая оценка скиллов (а не только списка)</a></li>
+<li><a href="#4_1">4. Как я бы применил это к данному репозиторию (и что уже сделано)</a></li>
+<li><a href="#5_1">5. Что я рекомендую не делать</a></li>
+<li><a href="#6_1">6. Итог в одну строку</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<hr />
+<h2 id="i">Часть I. Контекст проекта и критический разбор</h2>
+<p><strong>Репозиторий:</strong> <code>Kaytarby/customizable-cash-flow-dashboard</code>
+<strong>Ветка анализа:</strong> <code>arena/d0b1116e-customizable-cash-flow-dashboa</code> (HEAD <code>36b6fc0</code>, от <code>feature/cash-flow-scenarios</code>)
+<strong>Дата анализа:</strong> 2026-11-09
+<strong>Метод:</strong> чтение всего исходного кода (28 файлов в git; 2 498 строк в <code>src</code> + <code>tests</code>), прогон <code>tsc</code>/тестов/сборки, инструментальные проверки инвариантов и багов на реальном коде (скрипты в приложении), сверка с <code>main</code>.</p>
+<hr />
+<h3 id="0">0. Как читать этот документ</h3>
+<ul>
+<li>Разделы 1–8 — <strong>контекст</strong>: что за продукт, как устроен, какие правила и инварианты в нём зашиты. Этого достаточно, чтобы дальше менять код осмысленно.</li>
+<li>Раздел 9 — <strong>критический разбор</strong> с приоритетами, ссылками <code>файл:строка</code> и воспроизведением.</li>
+<li>Раздел 10 — <strong>приложение</strong> с командами и замерами, чтобы любую претензию можно было перепроверить.</li>
+<li>Раздел, посвящённый GitHub-скиллам для обратного реинжиниринга, — в отдельном файле <code>docs/REVERSE-ENGINEERING-SKILLS.md</code>.</li>
+</ul>
+<hr />
+<h3 id="1-llm">1. Сжатый контекст (можно копировать в LLM целиком)</h3>
+<pre><code>Проект: одностраничный дашборд «Движение денежных средств» (ДДС, прямой метод) на русском языке.
+Стек: React 19.2 + TypeScript 5.9 + Vite 7.3 + Tailwind 4.1 (плагин @tailwindcss/vite), сборка в один HTML (vite-plugin-singlefile).
+Бэкенда нет. Данные синтетические, генерируются при импорте модуля src/lib/data.ts (детерминированный PRNG, без сети и файлов).
+Объём: ~2 285 строк TS/TSX в src, 130 строк тестов, 28 файлов в git.
+Точка входа: src/main.tsx → src/App.tsx.
+Слои:
+  • данные/домен:  src/lib/data.ts (дерево статей, префиксные суммы по дням, сценарии, контрагенты)
+  • календарь:     src/lib/dates.ts (дни 0..1095 = 2024-01-01..2026-12-31, недели/месяцы/кварталы, границы сценариев)
+  • колонки:       src/lib/columns.ts (дерево периодов → header cells с rowspan/colspan)
+  • вычисление:    src/lib/model.ts (buildModel: строки × колонки → матрица значений, теплокарта)
+  • настройки:     src/lib/settings.ts (Settings, localStorage, пресеты, сохранённые виды)
+  • действия:      src/lib/rowActions.ts (свернуть/скрыть/solo/восстановить)
+  • формат/экспорт: src/lib/format.ts, src/lib/exportCsv.ts
+  • UI:            src/App.tsx, components/{ScenarioTabs,Toolbar,Kpis,PivotTable,Drilldown,SidePanel,ui}.tsx
+Ядро модели: у каждой статьи есть Float64Array prefix длиной 1097 (префиксные суммы по дням).
+Значение статьи за [s,e] = prefix[e+1] − prefix[s]; «нарастающим» — от начала периода; «% выручки» — деление на поступления группы op_in.
+Сценарии: fact (базовые данные), plan/budget (fact × случайный множитель по дням), rolling (склейка fact→plan→budget по границам), compare и planfact (4 метрики на период).
+Границы: дата отреза факта нормализуется к воскресенью, конец оперплана — к концу месяца.
+Ряды: 45 статей = 29 листьев + 13 групп + 3 расчётных (остаток на начало, чистый поток, остаток на конец); знак расходов отрицательный.
+Настройки и «виды» хранятся в localStorage (ключи dds-pivot-settings-v2 / dds-pivot-views-v2).
+Качество: npm test = 14/14 pass, npm run build = OK (609 кБ, 319 кБ gzip), но npx tsc --noEmit = 5 ошибок; CI, линтера, README и скрипта typecheck нет.
+</code></pre>
+<hr />
+<h3 id="2">2. Что это за продукт</h3>
+<p>Одностраничное приложение-отчёт: сводный отчёт о движении денежных средств прямым методом с настраиваемым pivot-представлением.</p>
+<p>Пользовательские возможности, реально реализованные в коде:</p>
+<table>
+<thead>
+<tr>
+<th>Возможность</th>
+<th>Где</th>
+<th>Комментарий</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6 «листов»: Факт, Бюджет, Оперплан, Ролинг-форкаст, Сравнение, План-факт</td>
+<td><code>components/ScenarioTabs.tsx</code></td>
+<td>переключение сценария меняет состав и природу колонок</td>
+</tr>
+<tr>
+<td>Иерархия периодов: год → квартал → месяц → неделя → день, произвольная комбинация</td>
+<td><code>lib/columns.ts</code></td>
+<td>недели режутся границами месяцев/кварталов/лет</td>
+</tr>
+<tr>
+<td>Сворачивание/разворачивание колонок, промежуточные итоги слева/справа/нет, колонка «Итого»</td>
+<td><code>lib/columns.ts</code>, <code>PivotTable.tsx</code></td>
+<td><code>colOverrides</code> хранит ручные переопределения</td>
+</tr>
+<tr>
+<td>Сворачивание/скрытие строк, «оставить только эту», строка «Скрытые статьи», восстановление</td>
+<td><code>lib/rowActions.ts</code>, <code>lib/model.ts</code></td>
+<td>сумма скрытых статей вычитается из итога группы</td>
+</tr>
+<tr>
+<td>Поиск по названиям статей с подсветкой</td>
+<td><code>lib/model.ts</code>, <code>PivotTable.tsx</code></td>
+<td>авто-раскрывает найденные ветки</td>
+</tr>
+<tr>
+<td>Режимы значений: сумма / нарастающим итогом / % выручки; единицы ₽/тыс./млн; знаки, нули, скобки</td>
+<td><code>lib/format.ts</code>, <code>lib/model.ts</code></td>
+<td></td>
+</tr>
+<tr>
+<td>Тепловая карта, зебра, сетка, выделение выходных, плотность, ширины колонок, тёмная тема</td>
+<td><code>PivotTable.tsx</code>, <code>SidePanel.tsx</code>, <code>index.css</code></td>
+<td>тема через класс <code>dark</code> на <code>&lt;html&gt;</code></td>
+</tr>
+<tr>
+<td>Drilldown по клику на ячейку, включая разбивку по контрагентам</td>
+<td><code>components/Drilldown.tsx</code></td>
+<td>контрагенты синтетические</td>
+</tr>
+<tr>
+<td>KPI-карточки: поступления, выплаты, чистый поток, остаток, Δ к предыдущему периоду той же длины</td>
+<td><code>components/Kpis.tsx</code></td>
+<td>считаются из <code>scenarioTotals</code>, не из матрицы</td>
+</tr>
+<tr>
+<td>Экспорт видимой таблицы в CSV (<code>,</code>, <code>;</code>, BOM для Excel)</td>
+<td><code>lib/exportCsv.ts</code></td>
+<td>только текущее представление</td>
+</tr>
+<tr>
+<td>Сохранение/применение видов, 5 встроенных пресетов, сброс настроек</td>
+<td><code>lib/settings.ts</code>, <code>App.tsx</code></td>
+<td>localStorage</td>
+</tr>
+</tbody>
+</table>
+<p>Осознанно <strong>не реализовано</strong>: подключение реальных данных (API/файл/1С/ERP), авторизация, роли, шаринг видов, серверное хранение, печать/PDF, XLSX, валюта/курсы, бюджетирование (ввод плана), проводки и аналитика по контрагентам из данных, i18n, мобильная раскладка таблицы.</p>
+<hr />
+<h3 id="3">3. Статус и проверки (что реально работает)</h3>
+<p>Выполнено в этой сессии (Node 22.22.3, npm 10.9.8):</p>
+<table>
+<thead>
+<tr>
+<th>Команда</th>
+<th>Результат</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm ci</code></td>
+<td>OK, 97 пакетов (сеть нестабильна — первая попытка упала <code>ECONNRESET</code>, вторая успешна)</td>
+</tr>
+<tr>
+<td><code>npm test</code></td>
+<td><strong>14/14 pass</strong> (~350 мс)</td>
+</tr>
+<tr>
+<td><code>npm run build</code></td>
+<td>OK, 2 090 модулей, <code>dist/index.html</code> 609.39 кБ / 319.37 кБ gzip</td>
+</tr>
+<tr>
+<td><code>npx tsc --noEmit</code></td>
+<td><strong>5 ошибок</strong> (см. 9.2)</td>
+</tr>
+<tr>
+<td><code>git status</code> после сборки</td>
+<td>чисто — закоммиченный <code>dist/index.html</code> совпадает с текущей сборкой</td>
+</tr>
+</tbody>
+</table>
+<p>Вывод: проект <strong>собирается и запускается</strong>, тесты зелёные, но заявленный в коммите контроль качества («тесты 14/14, build OK») не включает проверку типов, а именно она падает.</p>
+<hr />
+<h3 id="4">4. Технологии и окружение</h3>
+<ul>
+<li>React 19.2.6, react-dom 19.2.6, <code>useState</code>/<code>useMemo</code>/<code>useCallback</code> — без внешнего state-менеджера и без роутера.</li>
+<li>TypeScript 5.9.3, <code>strict: true</code>, <code>noUnusedLocals</code>, <code>noUnusedParameters</code>, <code>noFallthroughCasesInSwitch</code>, <code>noEmit</code>, alias <code>@/* → src/*</code> (на практике импорты относительные).</li>
+<li>Vite 7.3.2 + <code>@vitejs/plugin-react</code> 5.1.1 + <code>vite-plugin-singlefile</code> (весь JS/CSS/шрифты инлайнятся в один HTML — 7 встроенных woff2).</li>
+<li>Tailwind CSS 4.1.17 через <code>@tailwindcss/vite</code>; дизайн-токены — CSS-переменные в <code>src/index.css</code>, кастомный вариант <code>dark</code>.</li>
+<li><code>lucide-react</code> 1.70.0 (иконки), <code>clsx</code> + <code>tailwind-merge</code> (утилита <code>cn</code>).</li>
+<li><code>@fontsource-variable/inter</code> — шрифт в бандле, а не с CDN.</li>
+<li>Тесты: самодельный раннер — <code>esbuild</code> собирает <code>tests/*.ts(x)</code> в <code>.test-build/*.cjs</code>, затем <code>node --test</code>. DOM-окружения нет: UI проверяется через <code>react-dom/server.renderToStaticMarkup</code>, интерактив не тестируется.</li>
+</ul>
+<hr />
+<h3 id="5">5. Карта модулей</h3>
+<table>
+<thead>
+<tr>
+<th>Файл</th>
+<th style="text-align: right;">Строк</th>
+<th>Ответственность</th>
+<th>Ключевые экспорты</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/lib/dates.ts</code></td>
+<td style="text-align: right;">158</td>
+<td>календарь, уровни, ISO-недели, нормализация границ, периоды сценариев</td>
+<td><code>TOTAL_DAYS</code>, <code>isoToDay</code>, <code>segments</code>, <code>buildTree</code>-хелперы, <code>scenarioPeriods</code>, <code>rollingBounds</code>, <code>normalizeFactCutoff</code>, <code>normalizePlanEnd</code></td>
+</tr>
+<tr>
+<td><code>src/lib/data.ts</code></td>
+<td style="text-align: right;">308</td>
+<td>дерево статей, генерация данных, префиксные суммы, сценарии, контрагенты, итоги</td>
+<td><code>Article</code>, <code>ROOTS</code>, <code>BY_ID</code>, <code>LEAVES</code>, <code>NET</code>, <code>articleValue</code>, <code>scenarioPrefix</code>, <code>counterpartyValues</code>, <code>scenarioTotals</code>, <code>OPENING_BALANCE</code></td>
+</tr>
+<tr>
+<td><code>src/lib/columns.ts</code></td>
+<td style="text-align: right;">150</td>
+<td>дерево периодов → плоские колонки + шапка (rowspan/colspan), промежуточные итоги</td>
+<td><code>buildTree</code>, <code>layoutColumns</code>, типы <code>ColNode</code>, <code>Col</code>, <code>HeaderCell</code></td>
+</tr>
+<tr>
+<td><code>src/lib/model.ts</code></td>
+<td style="text-align: right;">214</td>
+<td>сборка представления: строки, колонки, матрица значений, теплокарта, режимы compare/planfact</td>
+<td><code>buildModel</code>, <code>cellValue</code>, <code>buildRows</code>, <code>clampRange</code></td>
+</tr>
+<tr>
+<td><code>src/lib/settings.ts</code></td>
+<td style="text-align: right;">165</td>
+<td><code>Settings</code>, значения по умолчанию, localStorage, пресеты, «видовые» ключи</td>
+<td><code>DEFAULTS</code>, <code>loadSettings</code>, <code>saveSettings</code>, <code>loadViews</code>, <code>PRESETS</code>, <code>collapseToLevel</code></td>
+</tr>
+<tr>
+<td><code>src/lib/rowActions.ts</code></td>
+<td style="text-align: right;">73</td>
+<td>операции над строками как чистые патчи настроек</td>
+<td><code>toggleCollapse</code>, <code>hideNode</code>, <code>showNode</code>, <code>soloNode</code>, <code>restoreKids</code>, <code>hideAllNested</code>, <code>hideAllLeaves</code></td>
+</tr>
+<tr>
+<td><code>src/lib/format.ts</code></td>
+<td style="text-align: right;">42</td>
+<td>форматирование чисел (Intl <code>ru-RU</code>), компактные суммы</td>
+<td><code>makeFormatter</code>, <code>UNIT_LABEL</code>, <code>compactMoney</code></td>
+</tr>
+<tr>
+<td><code>src/lib/exportCsv.ts</code></td>
+<td style="text-align: right;">26</td>
+<td>CSV текущей матрицы</td>
+<td><code>exportCsv</code></td>
+</tr>
+<tr>
+<td><code>src/App.tsx</code></td>
+<td style="text-align: right;">171</td>
+<td>состояние настроек/поиска, панель, виды, тема, композиция экрана</td>
+<td><code>App</code></td>
+</tr>
+<tr>
+<td><code>components/PivotTable.tsx</code></td>
+<td style="text-align: right;">313</td>
+<td>таблица, sticky-шапка/колонки, рендер ячеек, контекстные действия строки, drilldown</td>
+<td><code>PivotTable</code>, <code>PivotHandlers</code></td>
+</tr>
+<tr>
+<td><code>components/SidePanel.tsx</code></td>
+<td style="text-align: right;">182</td>
+<td>панель настроек: дерево статей, видимость, вид/формат</td>
+<td><code>SidePanel</code></td>
+</tr>
+<tr>
+<td><code>components/Toolbar.tsx</code></td>
+<td style="text-align: right;">190</td>
+<td>период, границы ролинга, уровни, детализация, режим, поиск</td>
+<td><code>Toolbar</code></td>
+</tr>
+<tr>
+<td><code>components/ui.tsx</code></td>
+<td style="text-align: right;">156</td>
+<td>примитивы: Segmented, Toggle, Field, Slider, IconButton, Popover, MenuItem, SelectBox</td>
+<td></td>
+</tr>
+<tr>
+<td><code>components/Drilldown.tsx</code></td>
+<td style="text-align: right;">47</td>
+<td>модальная расшифровка ячейки по статьям и контрагентам</td>
+<td><code>Drilldown</code></td>
+</tr>
+<tr>
+<td><code>components/Kpis.tsx</code></td>
+<td style="text-align: right;">54</td>
+<td>4 KPI-карточки с Δ</td>
+<td><code>Kpis</code>, <code>Card</code></td>
+</tr>
+<tr>
+<td><code>components/ScenarioTabs.tsx</code></td>
+<td style="text-align: right;">20</td>
+<td>6 вкладок-сценариев</td>
+<td><code>ScenarioTabs</code></td>
+</tr>
+<tr>
+<td><code>src/utils/cn.ts</code></td>
+<td style="text-align: right;">6</td>
+<td><code>clsx</code> + <code>twMerge</code></td>
+<td><code>cn</code></td>
+</tr>
+</tbody>
+</table>
+<p>Зависимости: <code>components/* → lib/* → dates</code> (снизу вверх, циклов нет); <code>model.ts</code> — единственная точка, где домен превращается в представление; UI читает только <code>Model</code> + <code>Settings</code>.</p>
+<hr />
+<h3 id="6">6. Поток данных и вычислений</h3>
+<pre><code>localStorage ──loadSettings──┐
+                            ├─→ useState&lt;Settings&gt; st ──┐
+query (поиск) ──────────────┘                          │
+                                                       ▼
+                          buildModel(st, query) ──────────────→ Model
+                            ├─ clampRange(st)                    { rows, cols, header,
+                            ├─ rollingBounds(factCutoff, planEnd)  headerRows, values,
+                            ├─ buildTree(levels, s, e)             rangeS, rangeE, heatMax }
+                            ├─ layoutColumns(...)
+                            ├─ buildRows(st, query)
+                            └─ values[i][j] = cellValue(row, col, st, s, bounds)
+                                        │
+                     articleValue(article, s, e, rangeStart, mode, scenario, bounds)
+                                        ▼
+                     scenarioPrefix(article, scenario, bounds) → Float64Array(1097)
+                                                       │
+        PivotTable ◄── Model ──► Kpis (scenarioTotals)
+             │                      ▲
+             ├─ Drilldown (cellValue + counterpartyValues)
+             └─ exportCsv ──────────┘
+</code></pre>
+<h4 id="_1">Ключевые формулы</h4>
+<ul>
+<li><code>prefix[i+1] = prefix[i] + daily[i]</code>, i = 0..1095 (день 0 = 2024-01-01, UTC).</li>
+<li>Значение за период: <code>value(s..e) = prefix[e+1] − prefix[s]</code>.</li>
+<li>«Нарастающим итогом»: <code>from = rangeStart</code>, иначе <code>from = s</code>; <code>pct = value / revenue(op_in)</code>.</li>
+<li>Остаток на начало: <code>OPENING_BALANCE + net[s]</code>; на конец: <code>OPENING_BALANCE + net[e+1]</code>; <code>OPENING_BALANCE = 35 000 000</code>.</li>
+<li>Ролинг-форкаст: дневное значение берётся из fact при <code>i ≤ factEnd</code>, из plan при <code>i ≤ planEnd</code>, иначе из budget.</li>
+<li>План/бюджет: <code>daily = round(fact_daily × k / 100) × 100</code>, где <code>k ∈ [1.04, 1.16]</code> для плана и <code>[0.88, 0.98]</code> для бюджета, PRNG с seed от <code>id</code> статьи.</li>
+<li>Δ и % в compare/planfact: <code>delta = value(scenario) − value(budget)</code>; <code>% вып. = |actual| / |plan| × 100</code>; <code>% откл. = (|actual| − |plan|) / |plan| × 100</code> (по модулям, поэтому знак отклонения читается как «больше/меньше плана по величине»).</li>
+</ul>
+<h4 id="_2">Инварианты, которые обязаны сохраняться при доработках</h4>
+<ol>
+<li><strong>Аддитивность по времени</strong>: сумма значений по непересекающимся соседним периодам равна значению за объединение (проверено для rolling и для колонки «Итого»: 59 204 600 = сумме 12 месяцев).</li>
+<li><strong>Согласование итогов</strong>: сумма листьев = <code>NET</code> = <code>scenarioTotals.net</code>; <code>close</code> = <code>open</code> следующего дня (тесты 10).</li>
+<li><strong>Клиппинг факта</strong>: в матрице факт после <code>factEnd</code> даёт <code>null</code>, но <code>scenarioTotals</code> факт <strong>не</strong> клиппит.</li>
+<li><strong>Скрытие не меняет итог группы</strong>: строка «Скрытые статьи» дорисовывается как <code>group − сумма(видимые листья)</code>.</li>
+<li><strong>Сетка колонок покрывает период без пересечений</strong>, недели режутся границами уровней.</li>
+<li><strong>Кэш сценариев</strong> зависит от <code>(scenario, article, factEnd, planEnd)</code> — при смене границ ключ меняется.</li>
+</ol>
+<hr />
+<h3 id="7">7. Доменная модель</h3>
+<h4 id="71-45">7.1 Дерево статей (45 статей)</h4>
+<pre><code>Операционная деятельность (op)
+├─ Поступления от клиентов (op_in)          ← база для «% выручки»
+│  ├─ Розничные продажи, Оптовые продажи, Услуги и подписки, Прочие
+└─ Операционные выплаты (op_out)
+   ├─ Закупка товаров и материалов (cogs)   Сырьё, Комплектующие, Логистика
+   ├─ Персонал (staff)                      Зарплата (10, 25), НДФЛ (28), Взносы (15)
+   ├─ Аренда и ЖКУ (rent)                   Офис, Склад, Коммуналка
+   ├─ Маркетинг (mkt)                       Контекст, Таргет, Агентства
+   ├─ Налоги и сборы (tax)                  НДС/прибыль (ежеквартально), прочие
+   └─ Административные расходы (admin)      лист
+Инвестиционная деятельность (inv)           Продажа ОС, Оборудование, Транспорт, Разработка
+Финансовая деятельность (fin)               Кредиты (получение/тело/проценты), Собственники (взнос/дивиденды)
+Расчётные строки: Остаток на начало (calc_open), Чистый поток (calc_net), Остаток на конец (calc_close)
+</code></pre>
+<p>Генераторы: <code>daily</code> (база × сезонность × рост × шум, пропуски и коэффициенты выходных), <code>monthly</code> (фиксированные дни месяца), <code>sporadic</code> (вероятность), <code>dates</code> (жёстко заданные даты: кредиты, дивиденды). Расходы хранятся со знаком минус.</p>
+<h4 id="72">7.2 Сценарии и границы</h4>
+<table>
+<thead>
+<tr>
+<th>Сценарий</th>
+<th>Что показывает</th>
+<th>Как строится период вкладки</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fact</code></td>
+<td>фактические данные</td>
+<td>с <code>2026-01-01</code> до воскресенья даты отреза</td>
+</tr>
+<tr>
+<td><code>budget</code></td>
+<td>бюджет</td>
+<td>с конца оперплана + 1 до <code>2026-12-31</code></td>
+</tr>
+<tr>
+<td><code>plan</code></td>
+<td>оперплан</td>
+<td>с дня после отсечки до конца месяца оперплана</td>
+</tr>
+<tr>
+<td><code>rolling</code></td>
+<td>склейка факт→план→бюджет</td>
+<td>весь 2026 год</td>
+</tr>
+<tr>
+<td><code>compare</code></td>
+<td>бюджет vs ролинг, Δ и % вып.</td>
+<td>весь 2026 год, уровни принудительно <code>month</code></td>
+</tr>
+<tr>
+<td><code>planfact</code></td>
+<td>план (бюджет), факт, отклонение, % отклонения</td>
+<td>весь 2026 год, уровни принудительно <code>month</code></td>
+</tr>
+</tbody>
+</table>
+<p>Границы: <code>normalizeFactCutoff</code> сдвигает дату к ближайшему воскресенью, <code>normalizePlanEnd</code> — к концу месяца. По умолчанию: отсечка <code>2026-03-15</code>, конец оперплана <code>2026-04-30</code>, бюджет с <code>2026-05-01</code>.</p>
+<h4 id="73">7.3 Колонки</h4>
+<p><code>buildTree(levels, s, e)</code> строит вложенное дерево: каждый уровень режется <code>segments()</code> внутри родителя. Ключ колонки — <code>level:start-end</code>, у сценарных колонок добавляется префикс <code>scenario:</code> и суффикс в заголовке. <code>layoutColumns</code> разворачивает дерево в «ячейки шапки» с <code>colspan</code>/<code>rowspan</code>, добавляет подытог (Σ) слева/справа от детей и закреплённую справа колонку «Итого». Ручные переопределения хранятся в <code>st.colOverrides[key] = collapsed?</code>.</p>
+<p><code>compare</code>/<code>planfact</code> — пост-обработка: каждая базовая колонка размножается на 4 метрики (48 колонок за 12 месяцев, 52 с «Итого»), шапка становится двухуровневой (<code>headerRows = 2</code>).</p>
+<h4 id="74">7.4 Строки</h4>
+<p><code>buildRows</code> обходит <code>ROOTS</code>: учитывает <code>hiddenRows</code> (скрытие не влияет на итоги), <code>collapsedRows</code>, добавляет виртуальную строку <code>id::rest</code> «Скрытые статьи (n)», при поиске игнорирует скрытие и раскрывает предков найденного. Действия возвращают <strong>патч настроек</strong>, а не мутируют состояние — это аккуратная и полезная архитектурная деталь.</p>
+<h4 id="75">7.5 Значения и формат</h4>
+<p><code>makeFormatter</code> считает нулём всё, что меньше <code>0.5 × 10^-d</code> в единицах отображения, рисует <code>–</code>, поддерживает скобки и U+2212. Знак расхода отрицательный, поэтому «Выплаты» в KPI отрицательные, а Δ для выплат считается от <code>−out</code>.</p>
+<h4 id="76">7.6 Настройки и виды</h4>
+<p><code>Settings</code> — один плоский объект (~30 полей), сохраняется целиком в localStorage на каждое изменение. <code>VIEW_KEYS</code> — подмножество полей, попадающих в «вид» (без темы и закрепления панели). <code>PRESETS</code> — 5 готовых видов (собственник, финконтроль, недели, дни, структура затрат в %).</p>
+<hr />
+<h3 id="8">8. Замеры (для оценки масштаба)</h3>
+<table>
+<thead>
+<tr>
+<th>Параметр</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Статей</td>
+<td>45 (29 листьев, 13 групп, 3 расчётных)</td>
+</tr>
+<tr>
+<td>Дней / длина префикса</td>
+<td>1 096 / 1 097</td>
+</tr>
+<tr>
+<td>Базовый объём данных</td>
+<td>~45 × 1 097 × 8 байт ≈ 395 кБ Float64Array + кэш сценариев</td>
+</tr>
+<tr>
+<td>Максимум колонок (все уровни, весь период, «Итого»)</td>
+<td><strong>1 335</strong></td>
+</tr>
+<tr>
+<td>Ячеек в худшем случае (день, все уровни)</td>
+<td>~<strong>40 050</strong> <code>&lt;td&gt;</code>, в каждом — <code>&lt;button&gt;</code>; столько же обработчиков в React-дереве</td>
+</tr>
+<tr>
+<td><code>buildModel</code> в худшем случае (Node)</td>
+<td>~16 мс</td>
+</tr>
+<tr>
+<td>Импорт <code>data.ts</code> (генерация всех листьев)</td>
+<td>~20 мс</td>
+</tr>
+<tr>
+<td>Бандл</td>
+<td>609.39 кБ / 319.37 кБ gzip, 7 инлайн-шрифтов</td>
+</tr>
+<tr>
+<td>Тестов</td>
+<td>14 (10 доменных + 4 UI-строковых)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="9">9. Критический разбор</h3>
+<h4 id="90">9.0 Вердикт</h4>
+<p>Это <strong>крепкий интерактивный прототип</strong> с продуманным UI и аккуратной вычислительной базой (префиксные суммы, чистые патчи, детерминированные данные), но <strong>не продукт</strong>:</p>
+<ul>
+<li>данные синтетические, а «план» и «бюджет» выводятся из факта — то есть вся аналитика план-факт и сравнение <strong>измеряют шум генератора</strong>, а не планы;</li>
+<li>проверки качества декоративны: типы не проверяются, CI нет, тесты не ловят ни одного из найденных ниже дефектов;</li>
+<li>часть чисел на экране может противоречить другим числам на том же экране (KPI vs таблица), а периоды — молча переворачиваться;</li>
+<li>интерфейс выглядит убедительнее, чем модель: «контрагенты», «% выполнения», «Δ» создают впечатление аналитики, которой в данных нет.</li>
+</ul>
+<p>Ниже — по приоритетам, с воспроизведением.</p>
+<h4 id="91-p0">9.1 P0 — блокирует доверие к числам или к продукту</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Проблема</th>
+<th>Где</th>
+<th>Проверено</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0-1</td>
+<td>Нет источника данных: всё генерируется на клиенте при импорте модуля</td>
+<td><code>src/lib/data.ts:20-217</code></td>
+<td>в коде нет ни <code>fetch</code>, ни импорта файлов</td>
+</tr>
+<tr>
+<td>P0-2</td>
+<td>План и бюджет — производные от факта (<code>fact × случайный коэффициент</code>), поэтому план-факт и «Сравнение» циркулярны</td>
+<td><code>src/lib/data.ts:266-278</code></td>
+<td>да, см. 9.2</td>
+</tr>
+<tr>
+<td>P0-3</td>
+<td><code>tsc</code> падает (5 ошибок), в т.ч. отсутствующий импорт <code>FACT_END_DAY</code> → потенциальный <code>ReferenceError</code></td>
+<td><code>src/lib/model.ts:181</code>, <code>src/lib/model.ts:4</code>, <code>src/components/Toolbar.tsx:2,92,102</code></td>
+<td>да, <code>npx tsc --noEmit</code></td>
+</tr>
+<tr>
+<td>P0-4</td>
+<td>KPI и таблица расходятся по факту за пределами даты отреза</td>
+<td><code>src/App.tsx:158</code>, <code>src/components/Kpis.tsx:43-45</code>, <code>src/lib/data.ts:301-308</code></td>
+<td>да: −7 372 300 против −15 392 800</td>
+</tr>
+<tr>
+<td>P0-5</td>
+<td>Периоды вкладок могут стать перевёрнутыми (начало позже конца) и молча меняются местами в <code>clampRange</code></td>
+<td><code>src/lib/dates.ts:125-136</code>, <code>src/lib/model.ts:79-88</code></td>
+<td>да: отсечка 2024-06-01 → «с 2026-01-01 по 2024-06-02»</td>
+</tr>
+</tbody>
+</table>
+<h5 id="p0-1-">P0-1. Демо-данные вместо данных</h5>
+<p><code>data.ts</code> при импорте генерирует 29 листьев на 3 года и собирает префиксные суммы. Ни API, ни загрузки файла, ни парсинга CSV, ни слоя адаптеров. «Настраиваемый дашборд» без источника данных — это демо-витрина; всё остальное (сценарии, контрагенты, границы) существует только для этой синтетики.</p>
+<p><strong>Что это значит для доработок:</strong> прежде чем добавлять фичи, нужен контракт данных (<code>interface CashflowDataset</code>), стор и загрузчик; иначе любая новая функция будет прибита к генератору.</p>
+<h5 id="p0-2">P0-2. Циркулярная аналитика плана</h5>
+<pre><code class="language-ts">// src/lib/data.ts:274-278
+const base = a.prefix[i + 1] - a.prefix[i];
+const factor = scenario === &quot;plan&quot; ? 1.04 + random() * 0.12 : 0.88 + random() * 0.10;
+daily[i] = Math.round(base * factor / 100) * 100;
+</code></pre>
+<p>План и бюджет считаются <strong>от факта по дням</strong>. Последствия:</p>
+<ul>
+<li>«Отклонение факт − план» — это не отклонение от плана, а <code>факт × (1 − k)</code>, где <code>k</code> — случайный множитель; план никогда не бывает «независимым».</li>
+<li>Невозможно смоделировать нормальную ситуацию «план рос, факт упал»: бюджет копирует все всплески и провалы факта.</li>
+<li>Метрики <code>% вып.</code> (в <code>compare</code>) и <code>% отклонения</code> (в <code>planfact</code>) наследуют эту зависимость, поэтому «инсайты» на демо недостоверны по построению.</li>
+<li>Тест <code>planfact analysis works on past periods (2024)</code> закрепляет именно это поведение как норму — то есть тест охраняет не бизнес-правило, а артефакт генератора.</li>
+</ul>
+<p><strong>Как чинить:</strong> генерировать план независимо (свой сезонный профиль и шаг роста) и хранить его отдельным набором префиксов; факт получать как «план + независимый шум + сдвиги». Тогда отклонения станут осмысленными.</p>
+<h5 id="p0-3">P0-3. Типы не проверяются, и это уже стреляет</h5>
+<pre><code>src/components/Toolbar.tsx(2,129): error TS6133: 'rollingBounds' is declared but its value is never read.
+src/components/Toolbar.tsx(2,144): error TS6133: 'fmtFull' is declared but its value is never read.
+src/components/Toolbar.tsx(92,115): error TS7053: ... type 'any' can't be used to index type 'Record&lt;Scenario, ...&gt;'
+src/components/Toolbar.tsx(102,143): error TS7053: ... (то же)
+src/lib/model.ts(181,42): error TS2304: Cannot find name 'FACT_END_DAY'.
+</code></pre>
+<p><code>FACT_END_DAY</code> используется в <code>model.ts:181</code>, но не импортирован из <code>dates.ts</code> (строка 4 импортирует <code>LEVEL_ORDER, isoToDay, TOTAL_DAYS, rollingBounds, SCENARIO_LABELS, Scenario</code>). В приложении это не падает только потому, что <code>buildModel</code> всегда передаёт <code>bounds</code>; любой вызов <code>cellValue</code> без <code>bounds</code> даёт <code>ReferenceError</code> — проверено:</p>
+<pre><code>cellValue no bounds THROWS: ReferenceError FACT_END_DAY is not defined
+</code></pre>
+<p>Причина, почему это дожило до ветки: <code>npm run build</code> — это <code>vite build</code> (esbuild стирает типы), а <code>test</code> собирает esbuild'ом. <strong>Ни одна команда проекта не проверяет типы.</strong> Коммит при этом утверждает «Тесты 14/14, build OK» как доказательство качества.</p>
+<h5 id="p0-4-kpi">P0-4. KPI и таблица считают разное</h5>
+<p><code>Kpis</code> берёт <code>scenarioTotals(...)</code>, а таблица — <code>cellValue</code>, где факт обрезается по <code>factEnd</code>. <code>scenarioTotals</code> обрезку не делает (<code>scenario === "fact"</code> → <code>a.prefix</code> без клиппинга). В режиме «Факт» стоит расширить период за 15.03.2026 — и на одном экране:</p>
+<pre><code>таблица (сумма колонок «Факт»): −15 392 800
+KPI «Чистый денежный поток»:    −7 372 300
+</code></pre>
+<p>Плюс заголовок <code>App.tsx:156</code> для вкладки «Факт» вообще не сообщает, что факт обрезан. Для финансового дашборда расхождение двух чисел на одном экране — это дискредитация всего продукта, независимо от того, какое из них «правильное».</p>
+<p><strong>Как чинить:</strong> один источник истины для «доступного факта» (функция <code>effectiveRange(scenario, s, e)</code>), использовать её и в <code>cellValue</code>, и в <code>scenarioTotals</code>, и в KPI, и в экспорте; плюс явная плашка «факт доступен до …».</p>
+<h5 id="p0-5">P0-5. Перевёрнутые периоды</h5>
+<p><code>scenarioPeriods</code> жёстко зашивает <code>2026-01-01</code> и <code>2026-12-31</code>:</p>
+<pre><code class="language-ts">fact:   { from: &quot;2026-01-01&quot;, to: dayToIso(factEnd), ... },
+budget: { from: dayToIso(budgetStart), to: &quot;2026-12-31&quot;, ... },
+</code></pre>
+<p>Проверка на реальном коде:</p>
+<pre><code>scenarioPeriods(&quot;2024-06-01&quot;, &quot;2026-04-30&quot;)
+  fact:   { from: &quot;2026-01-01&quot;, to: &quot;2024-06-02&quot; }   ← начало позже конца
+  plan:   { from: &quot;2024-06-03&quot;, to: &quot;2026-04-30&quot; }   ← 2 года «оперплана»
+scenarioPeriods(&quot;2026-11-20&quot;, &quot;2026-04-30&quot;)
+  plan:   { from: &quot;2026-11-23&quot;, to: &quot;2026-04-30&quot; }   ← перевёрнуто
+</code></pre>
+<p><code>clampRange</code> в <code>model.ts:86</code> молча меняет <code>s</code> и <code>e</code> местами (<code>if (e &lt; s) [s, e] = [e, s]</code>), поэтому пользователь получит таблицу за диапазон, который не выбирал, без единого предупреждения. То же при выборе даты отсечки после конца оперплана — а это штатное действие в UI.</p>
+<p><strong>Как чинить:</strong> валидировать ввод (запрещать <code>planEnd &lt; factCutoff</code>, <code>factCutoff</code> вне поддерживаемого окна), вычислять <code>from</code> от выбранной отсечки, а не от константы, и показывать явную ошибку вместо тихого свапа.</p>
+<h4 id="92-p1-ux">9.2 P1 — функциональные дефекты и обманчивый UX</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Проблема</th>
+<th>Где</th>
+<th>Доказательство</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1-1</td>
+<td><code>% вып.</code> взрывается при плане ≈ 0 (нет порога «слишком мал план»)</td>
+<td><code>src/lib/model.ts:187-196</code></td>
+<td>на реальных данных: янв 113%, фев <strong>743%</strong>, апр <strong>14%</strong></td>
+</tr>
+<tr>
+<td>P1-2</td>
+<td>Контрагенты синтетические и игнорируют <code>delta</code>, <code>cum</code>, <code>pct</code> и отсечку факта → расшифровка не сходится с ячейкой</td>
+<td><code>src/lib/data.ts:286-299</code>, <code>src/components/Drilldown.tsx:32</code></td>
+<td>распределение по хешу id, 5 фиксированных имён</td>
+</tr>
+<tr>
+<td>P1-3</td>
+<td>Пресеты не задают сценарий; в <code>compare</code>/<code>planfact</code> и <code>budget</code> уровни колонок и «детализация» молча игнорируются</td>
+<td><code>src/lib/settings.ts:129-165</code>, <code>src/lib/model.ts:109-111</code>, <code>src/components/ScenarioTabs.tsx:12</code></td>
+<td><code>buildTree(["month"], ...)</code> вместо <code>st.levels</code></td>
+</tr>
+<tr>
+<td>P1-4</td>
+<td>Настройки и виды читаются без валидации/миграции: битый JSON-объект может дать <code>levels: []</code>, <code>from &gt; to</code>, мёртвые id</td>
+<td><code>src/lib/settings.ts:83-120</code></td>
+<td><code>{...DEFAULTS, ...JSON.parse(raw)}</code></td>
+</tr>
+<tr>
+<td>P1-5</td>
+<td>«Скрывать пустые строки» не учитывает единицы: порог 0.5 ₽</td>
+<td><code>src/lib/model.ts:153-158</code></td>
+<td>23 строки и при ₽, и при млн (из 30)</td>
+</tr>
+<tr>
+<td>P1-6</td>
+<td>Экспорт CSV не самодостаточен: нет сценария/отсечки/даты, смешаны деньги и %, округление всегда 3 знака, нет XLSX/расшифровок; при появлении реальных имён — риск formula injection</td>
+<td><code>src/lib/exportCsv.ts:8-19</code></td>
+<td>заголовок = только названия колонок</td>
+</tr>
+<tr>
+<td>P1-7</td>
+<td>«% выручки»: база жёстко <code>op_in</code>, подписи расходятся («% выручки» vs «% от поступлений от клиентов»), у самой выручки 100%, у остатков <code>null</code></td>
+<td><code>src/lib/data.ts:228-243</code>, <code>src/App.tsx:69</code></td>
+<td>да</td>
+</tr>
+<tr>
+<td>P1-8</td>
+<td>Поиск обходит скрытие и строку «Скрытые статьи», раскрывает всё дерево, без debounce и счётчика результатов</td>
+<td><code>src/lib/model.ts:21-66</code></td>
+<td>да</td>
+</tr>
+<tr>
+<td>P1-9</td>
+<td>Производительность: нет виртуализации; при 1 335 колонках ~40 тыс. ячеек-кнопок; модель пересобирается на любое изменение, включая слайдеры ширины</td>
+<td><code>src/components/PivotTable.tsx:208</code>, <code>src/App.tsx:38</code>, <code>src/components/SidePanel.tsx:142-147</code></td>
+<td>замер 16 мс на матрицу + стоимость React-рендера</td>
+</tr>
+<tr>
+<td>P1-10</td>
+<td>Доступность: действия строки доступны только по hover (<code>opacity-0</code>), 0 <code>scope</code>/<code>aria-live</code>, цвет как единственный носитель смысла, кнопка в каждой ячейке</td>
+<td><code>src/components/PivotTable.tsx:135</code>, <code>SidePanel.tsx:39</code></td>
+<td><code>grep</code> = 0</td>
+</tr>
+<tr>
+<td>P1-11</td>
+<td>Смена сценария пересоздаёт <code>&lt;main key={st.scenario}&gt;</code> → сбрасывается скролл таблицы</td>
+<td><code>src/App.tsx:161</code></td>
+<td>да</td>
+</tr>
+<tr>
+<td>P1-12</td>
+<td><code>mode=cum</code> и drilldown: части показываются за период, а итог — нарастающим; в compare у «Δ» части показывают ролинг</td>
+<td><code>src/components/Drilldown.tsx:26-34</code></td>
+<td>по коду</td>
+</tr>
+</tbody>
+</table>
+<p><strong>P1-1 подробнее.</strong> <code>% вып.</code> = <code>|факт| / |план| × 100</code>; защита есть только от точного нуля. Для статей с редкими платежами (налоги, капекс, проценты) план в конкретном месяце близок к нулю — и пользователь видит «743%» как нормальную метрику. На реальных данных это будет постоянно; нужен порог (<code>|plan| &lt; ε</code> → «н/д») и/или абсолютное отклонение рядом с относительным.</p>
+<p><strong>P1-2 подробнее.</strong> <code>counterpartyValues</code> делит сумму статьи между пятью вымышленными контрагентами по хешу от <code>id</code>, причём <code>mode</code> жёстко <code>'sum'</code> и не передаётся <code>col.node.delta</code>. Поэтому в «Нарастающим» и в колонках «Δ» разбивка не сходится с итогом расшифровки, а в «Факте» после отсечки показывает числа под пустой ячейкой. Для демо это допустимо, но подпись «По контрагентам» обещает аналитику, которой нет; в проде это надо либо убрать, либо питать реальными разрезами.</p>
+<h4 id="93-p2">9.3 P2 — гигиена, поддерживаемость, риски</h4>
+<ul>
+<li><strong>Мёртвый код и легаси</strong>: <code>Settings.comparison</code> не читается нигде, кроме определения; <code>SCENARIO_PERIODS</code> помечен «Legacy defaults»; <code>IN_PREFIX</code>/<code>OUT_PREFIX</code> считаются при импорте, но за пределами <code>data.ts</code> не используются (лишние ~35 кБ и работа); <code>delta?: "plan" | "budget"</code>, хотя используется только <code>budget</code>; <code>LEVEL_ORDER[n.level]</code> с приведением типа для <code>"total"</code>.</li>
+<li><strong>Магические числа</strong>: <code>OPENING_BALANCE = 35 000 000</code>, <code>TOTAL_DAYS = 1096</code>, окно 2024–2026, порог <code>0.5</code>, коэффициент теплокарты <code>0.34</code>, коэффициенты генератора — всё в коде, без конфигурации.</li>
+<li><strong>Дубли и хрупкость</strong>: список «расходных» id захардкожен <strong>дважды</strong> в <code>PivotTable.tsx:169,174</code>; для смешанных групп (<code>inv</code>, <code>fin</code>) эвристика «всё расход» неверна по смыслу; знак и цвет выводятся из этого списка, а не из данных.</li>
+<li><strong>Кэш сценариев не ограничен</strong>: ключ включает <code>factEnd</code>/<code>planEnd</code>, и каждая новая комбинация при переборе дат добавляет ~43 массива × 8.8 кБ ≈ 380 кБ. При аккуратном перетаскивании границ это накопится; TTL/LRU нет.</li>
+<li><strong>Репозиторий</strong>: нет README, LICENSE, CONTRIBUTING, <code>.editorconfig</code>, линтера/форматтера, CI-workflow; <code>package.json</code> называется <code>react-vite-tailwind</code>, версия <code>0.0.0</code>; в git лежит собранный <code>dist/index.html</code> на 600 кБ (он актуален, но раздувает диффы).</li>
+<li><strong>История git</strong>: <code>main</code> (<code>39b3554</code>) и ветка (<code>36b6fc0</code>) — <strong>несвязанные истории</strong> (<code>git merge-base</code> отсутствует), т.е. PR/мерж потребует <code>--allow-unrelated-histories</code>; единственный «фиксящий» коммит добавляет все 28 файлов и 5 223 строки, поэтому по истории невозможно понять, что именно чинилось.</li>
+<li><strong>Тесты</strong>: 14 штук; UI проверяется сравнением HTML-строк (<code>renderToStaticMarkup</code>), интерактив (клик, сворачивание, экспорт, localStorage) не покрыт; нет e2e, a11y, перф-тестов, покрытия и порогов. Тест <code>assert.equal(m.cols.length, 48)</code> закрепляет реализацию, а не требование.</li>
+<li><strong>Локализация</strong>: только русский, <code>Intl</code> жёстко <code>ru-RU</code>, подписи в JSX, нет слоя i18n; расчёт в UTC (для Москвы безобидно, для мультирегиона — нет).</li>
+<li><strong>Отсутствие устойчивости</strong>: нет error boundary, скелетонов/состояний загрузки (данные синхронны), обработки пустого результата на уровне приложения, телеметрии и логирования.</li>
+<li><strong>Сохранение настроек</strong>: синхронная запись в localStorage на каждое изменение (включая перетаскивание слайдера ширины).</li>
+</ul>
+<h4 id="94">9.4 Что я проверил и проблемой <strong>не</strong> считаю</h4>
+<p>Чтобы критика была честной, эти вещи я специально проверял — они в порядке:</p>
+<ul>
+<li><strong>Колонка «Итого» сходится</strong> с суммой периодов (для «Ролинг» полный год: 59 204 600 = сумма 12 месяцев). Ранее подозрение на расхождение не подтвердилось.</li>
+<li><strong>Аддитивность и остатки</strong>: <code>close(d) = open(d+1)</code> на обеих границах, сумма листьев = <code>NET</code> = KPI-net для всех сценариев (тесты 9–10).</li>
+<li><strong>ISO-недели</strong>: <code>isoWeek</code> корректна на краях года (2024-01-01 → 1, 2025-01-01 → 1, 2026-03-15 → 11).</li>
+<li><strong>Календарь</strong>: 2024 високосный, 366 + 365 + 365 = 1 096 — сходится.</li>
+<li><strong>Сборка в один файл</strong> воспроизводима, закоммиченный <code>dist</code> совпадает с текущим билдом.</li>
+<li><strong>Разделение слоёв</strong> аккуратное: чистые функции, патчи вместо мутаций, нет <code>dangerouslySetInnerHTML</code> (0), нет <code>TODO/FIXME</code> (0), <code>as any</code> всего 2.</li>
+<li><strong>UI-детали</strong>: sticky-шапка и колонки, <code>role="tab"</code>/<code>aria-selected</code>, <code>dialog</code> для расшифровки, <code>aria-label</code> на кнопках ячеек — выше среднего для прототипа.</li>
+</ul>
+<h4 id="95">9.5 Что бы я сделал в первую очередь</h4>
+<p><strong>День 1 — вернуть доверие к числам (P0):</strong>
+1. Добавить <code>typecheck</code> в <code>package.json</code> и в предполагаемый CI; починить 5 ошибок (импорт <code>FACT_END_DAY</code>, два <code>as any</code> в <code>Toolbar</code>, два неиспользуемых импорта).
+2. Единая функция «доступный диапазон факта» и использование её в <code>cellValue</code>, <code>scenarioTotals</code>, KPI, экспорте; тест «KPI = сумма колонок» на диапазоне, выходящем за отсечку.
+3. Валидация границ (<code>planEnd ≥ factCutoff</code>, окно 2024–2026) + явные ошибки вместо <code>clampRange</code>-свапа; периоды считать от выбранной отсечки, а не от констант.
+4. Убрать <code>factCutoff</code>-зависимость из <code>scenarioPeriods</code> либо запретить вкладки вне 2026 без предупреждения.</p>
+<p><strong>Неделя 1 — сделать демо честным и управляемым:</strong>
+5. Независимый генератор плана/бюджета (P0-2) — иначе вся аналитика бессмысленна.
+6. Порог для <code>% вып.</code> и абсолютное отклонение рядом.
+7. Слой данных: <code>CashflowDataset</code> + загрузчик (хотя бы CSV/JSON-файл) и замена модульного синглтона на контекст/стор.
+8. README, LICENSE, CI (typecheck + test + build), линтер; <code>dist</code> убрать из git; привести <code>package.json</code> в порядок.
+9. Валидация настроек при загрузке и миграция ключей localStorage.
+10. Виртуализация таблицы или жёсткое ограничение колонок с деградацией (сейчас есть только предупреждение &gt; 250).</p>
+<p><strong>Перед пилотом:</strong> e2e на 3–5 сценариев пользователя, a11y-проход (клавиатура, <code>scope</code>, <code>aria-live</code>), XLSX-экспорт с метаданными, реальный drilldown по контрагентам, i18n/валюты, бэкенд и права доступа.</p>
+<hr />
+<h3 id="10">10. Приложение: как воспроизвести проверки</h3>
+<pre><code class="language-bash">npm ci
+npx tsc --noEmit          # 5 ошибок
+npm test                  # 14/14
+npm run build             # 609.39 kB / gzip 319.37 kB
+</code></pre>
+<p>Проверки поведения (esbuild-бандл + node, без изменения репозитория):</p>
+<pre><code class="language-ts">// 1) перевёрнутые периоды
+scenarioPeriods(&quot;2024-06-01&quot;, &quot;2026-04-30&quot;).fact
+// → { from: &quot;2026-01-01&quot;, to: &quot;2024-06-02&quot; }
+
+// 2) KPI против таблицы (режим fact, период 2026-01-01..2026-12-31)
+buildModel({...DEFAULTS, scenario: &quot;fact&quot;, from: &quot;2026-01-01&quot;, to: &quot;2026-12-31&quot;, levels: [&quot;month&quot;]}, &quot;&quot;)
+// сумма колонок «Факт» ≈ -15 392 800
+scenarioTotals(isoToDay(&quot;2026-01-01&quot;), isoToDay(&quot;2026-12-31&quot;), &quot;fact&quot;).net
+// → -7 372 300
+
+// 3) отсутствующий импорт
+cellValue(row, col, DEFAULTS, 0 /* без bounds */)
+// → ReferenceError: FACT_END_DAY is not defined
+
+// 4) hideEmpty не зависит от единиц
+buildModel({...DEFAULTS, hideEmpty: true, unit: 1,     ...}).rows.length // 23
+buildModel({...DEFAULTS, hideEmpty: true, unit: 1000000, ...}).rows.length // 23
+
+// 5) % выполнения при плане около нуля: 743%
+</code></pre>
+<p>Ограничение анализа: приложение не запускалось в браузере (в песочнице нет браузерного рантайма), поэтому визуальные/интерактивные выводы сделаны по коду и SSR-рендеру; логика проверена исполнением.</p>
+<hr />
+<h2 id="ii-github-">Часть II. GitHub-скиллы для обратного реинжиниринга</h2>
+<p>Дата проверки: <strong>2026-11-09</strong>. Данные — GitHub API (звёзды, лицензия, дата последнего пуша), README/SKILL.md там, где они читались.</p>
+<hr />
+<h3 id="1-reverse-engineering">1. Сначала о терминах: «reverse engineering» — это два разных занятия</h3>
+<table>
+<thead>
+<tr>
+<th>Что называют RE</th>
+<th>Что это на практике</th>
+<th>Подходит ли к этому репозиторию</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Бинарный/мобильный RE</td>
+<td>Ghidra, Frida, дизассемблирование, CTF, малварь</td>
+<td><strong>Нет.</strong> Здесь TypeScript-исходники, ничего дизассемблировать не нужно</td>
+</tr>
+<tr>
+<td>RE кодовой базы (code archaeology)</td>
+<td>восстановить архитектуру, доменные правила, инварианты и решения по существующему исходнику; получить PRD/CLAUDE.md/ADR</td>
+<td><strong>Да.</strong> Именно это нужно для «создания контекста»</td>
+</tr>
+</tbody>
+</table>
+<p>Большинство «reverse engineering skills» на GitHub — про первое. Для второго корректный запрос: <em>codebase analysis</em>, <em>code archaeology</em>, <em>documentation bootstrap</em>, <em>context engineering</em>, <em>legacy modernization</em>.</p>
+<hr />
+<h3 id="2-api">2. Шорт-лист (проверено по API)</h3>
+<h4 id="21">2.1 Прямо в цель: анализ существующего кода → документация/контекст</h4>
+<table>
+<thead>
+<tr>
+<th>Репозиторий</th>
+<th style="text-align: right;">★</th>
+<th>Лицензия</th>
+<th>Пуш</th>
+<th>Что реально даёт</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/Ycsyyds/codebase-analysis-skill">Ycsyyds/codebase-analysis-skill</a></td>
+<td style="text-align: right;">41</td>
+<td>MIT</td>
+<td>2026-03-27</td>
+<td>Claude Code skill: 9 фаз (0–7 + 1.5), требование <code>[VERIFY: file:line]</code> к каждому утверждению, скрипты пост-проверки ссылок, шаблоны и примеры. Самый зрелый из «маленьких» именно под нашу задачу</td>
+</tr>
+<tr>
+<td><a href="https://github.com/emmaisasleep/project-rebirth-skill">emmaisasleep/project-rebirth-skill</a></td>
+<td style="text-align: right;">0</td>
+<td>—</td>
+<td>—</td>
+<td>4 фазы: уточнение, анализ (4 скрипта: структура, намерения, «трение», потоки данных), генерация Rebirth Kit (<code>PRD.md</code>, <code>CLAUDE.md</code>, <code>standards.yaml</code>), ревью. Концептуально ровно «обратный реинжиниринг проекта в контекст», но без подтверждения сообществом</td>
+</tr>
+<tr>
+<td><a href="https://github.com/longranger2/project-doc-bootstrap">longranger2/project-doc-bootstrap</a></td>
+<td style="text-align: right;">2</td>
+<td>MIT</td>
+<td>2026-04-19</td>
+<td>Фрактальная иерархия документации: L1 корневой <code>CLAUDE.md</code>, L2 по каталогам, L3 заметки в файлах; <code>AGENTS.md</code> как симлинк. Полезно, чтобы контекст не сгнил через месяц</td>
+</tr>
+<tr>
+<td><a href="https://github.com/YaojieZhang/Repo-Analyzer-Skills">YaojieZhang/Repo-Analyzer-Skills</a></td>
+<td style="text-align: right;">3</td>
+<td>нет</td>
+<td>2026-03-09</td>
+<td>Python-тулкит (<code>analyze_repo.py</code>, <code>src</code>, <code>tests</code>) для быстрого разбора крупных репозиториев. Больше про метрики, чем про смысл</td>
+</tr>
+<tr>
+<td><a href="https://github.com/juanje/context-generator">juanje/context-generator</a></td>
+<td style="text-align: right;">4</td>
+<td>MIT</td>
+<td>2026-06-22</td>
+<td>Генерирует и поддерживает компактные context-файлы для ревьюеров/LLM. Узко, но честно</td>
+</tr>
+</tbody>
+</table>
+<h4 id="22">2.2 Полезные «соседние» наборы</h4>
+<table>
+<thead>
+<tr>
+<th>Репозиторий</th>
+<th style="text-align: right;">★</th>
+<th>Лицензия</th>
+<th>Что взять конкретно</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/softaworks/agent-toolkit">softaworks/agent-toolkit</a></td>
+<td style="text-align: right;">2 655</td>
+<td>MIT</td>
+<td><code>c4-architecture</code> (диаграммы C4), <code>backend-to-frontend-handoff-docs</code>, <code>qa-test-planner</code> (план тестов под текущие дыры), <code>react-dev</code>, <code>react-useeffect</code>, <code>reducing-entropy</code>, <code>session-handoff</code>, <code>skill-judge</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/anthropics/skills">anthropics/skills</a></td>
+<td style="text-align: right;">190 247</td>
+<td>нет файла лицензии</td>
+<td>Официальный набор: <code>webapp-testing</code> (Playwright-тесты — прямое лекарство от отсутствия e2e), <code>skill-creator</code>, <code>frontend-design</code>, <code>doc-coauthoring</code>, <code>xlsx</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/obra/superpowers">obra/superpowers</a></td>
+<td style="text-align: right;">314 859</td>
+<td>MIT</td>
+<td>Методология, а не анализ: <code>brainstorming</code>, <code>writing-plans</code>, <code>systematic-debugging</code>, <code>test-driven-development</code>, <code>verification-before-completion</code>. Полезно как процесс, не как анализатор</td>
+</tr>
+<tr>
+<td><a href="https://github.com/markdown-viewer/skills">markdown-viewer/skills</a></td>
+<td style="text-align: right;">3 397</td>
+<td>CC-BY-4.0</td>
+<td>Диаграммы (в т.ч. архитектурные) прямо в Markdown — удобно для этого документа</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alexgaoth/awesome-reverse-engineered">alexgaoth/awesome-reverse-engineered</a></td>
+<td style="text-align: right;">1 294</td>
+<td>MIT</td>
+<td>Каталог «что уже отреверсили» — справочник, не скилл</td>
+</tr>
+</tbody>
+</table>
+<h4 id="23">2.3 Что НЕ подходит, хотя по названию кажется «тем самым»</h4>
+<ul>
+<li><a href="https://github.com/ljagiello/ctf-skills">ljagiello/ctf-skills</a> (3 665★) — web/pwn/crypto/forensics/RE для CTF. Бинарный RE, к TS-репозиторию неприменим.</li>
+<li><code>index-login/MobileRE-Skill</code>, <code>1llu50ry/mcp-reverse</code>, <code>cellebrite-labs/ghidra-rpc</code> — мобильный/бинарный RE, Ghidra, Frida.</li>
+<li><code>zhaoxuya520/reverse-skill</code> — «reverse engineering / pentest router», безопасность, а не документация кода.</li>
+</ul>
+<hr />
+<h3 id="3_1">3. Критическая оценка скиллов (а не только списка)</h3>
+<ol>
+<li><strong>Скилл — это промпт-каркас, не анализатор.</strong> Ни один из них не парсит AST и не доказывает утверждения; ценность — в дисциплине (фазы, обязательные ссылки <code>file:line</code>, чек-листы). Всё содержательное всё равно добывается чтением кода и запуском тестов.</li>
+<li><strong>Звёзды ≠ качество.</strong> <code>project-rebirth-skill</code> (0★) концептуально ближе к задаче, чем <code>ctf-skills</code> (3.6k★); у <code>codebase-analysis-skill</code> всего 41★, но есть методика и скрипты верификации. Звёзды у <code>obra/superpowers</code> (314k) и <code>anthropics/skills</code> (190k) — популярность, а не пригодность к RE.</li>
+<li><strong>Лицензии разные:</strong> у <code>anthropics/skills</code> и <code>Repo-Analyzer-Skills</code> файла лицензии нет — для внутреннего использования уточняйте у правообладателя; <code>markdown-viewer/skills</code> — CC-BY-4.0 (нужна атрибуция).</li>
+<li><strong>Расхождение в README у <code>codebase-analysis-skill</code>:</strong> инструкция по установке ссылается на <code>github.com/Yangchengshuai/...</code> (старое имя/форк), а репозиторий живёт под <code>Ycsyyds</code>. Перед установкой проверяйте, что клонируете именно то, что читали.</li>
+<li><strong>Риск «уверенной чуши».</strong> Скиллы генерят красивые документы; без требования <code>[VERIFY: file:line]</code> и без прогона кода в них появляются несуществующие функции и «архитектурные решения», которых не было. В моём документе каждая претензия сопровождается ссылкой и воспроизведением — это и есть разница между RE и пересказом.</li>
+<li><strong>Установка = исполнение чужого кода.</strong> Большинство скиллов предлагают клонирование в <code>~/.claude/skills</code> или плагин-маркетплейс; читайте <code>SKILL.md</code>, <code>scripts/</code>, <code>helpers/</code> до запуска, особенно если скилл включает shell/python-шаги.</li>
+<li><strong>Для 2,3 тыс. строк скилл — оверхед.</strong> Этот проект целиком читается за один проход (2 498 строк, включая тесты). Скилл дал бы шаблон отчёта и чек-лист полноты, но не новые факты.</li>
+</ol>
+<hr />
+<h3 id="4_1">4. Как я бы применил это к данному репозиторию (и что уже сделано)</h3>
+<table>
+<thead>
+<tr>
+<th>Шаг</th>
+<th>Инструмент</th>
+<th>Результат</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Инвентаризация: размеры, зависимости, точки входа, git-история</td>
+<td>вручную + <code>git</code>/<code>npm</code></td>
+<td>раздел 4–5 в <code>PROJECT-CONTEXT.md</code>; найдено, что <code>main</code> и ветка — несвязанные истории</td>
+</tr>
+<tr>
+<td>2. Карта модулей и потоков данных</td>
+<td><code>c4-architecture</code> (по желанию)</td>
+<td>разделы 5–6</td>
+</tr>
+<tr>
+<td>3. Извлечение доменных правил и инвариантов</td>
+<td><code>codebase-analysis-skill</code> (фазы 2–4)</td>
+<td>разделы 6–7, формулы и 6 инвариантов</td>
+</tr>
+<tr>
+<td>4. <strong>Верификация</strong>: запуск <code>tsc</code>, тестов, сборки, инструментальные проверки гипотез</td>
+<td>без скиллов, только код</td>
+<td>раздел 9 с числами; так найдены KPI-расхождение, перевёрнутые периоды, <code>ReferenceError</code></td>
+</tr>
+<tr>
+<td>5. Критика и приоритизация P0/P1/P2</td>
+<td><code>qa-test-planner</code>, <code>systematic-debugging</code></td>
+<td>раздел 9</td>
+</tr>
+<tr>
+<td>6. Фиксация контекста для следующих сессий</td>
+<td><code>project-doc-bootstrap</code> / <code>context-generator</code></td>
+<td>этот файл + <code>PROJECT-CONTEXT.md</code> (при желании — разбить на L2 по каталогам)</td>
+</tr>
+</tbody>
+</table>
+<p>Если хочется автоматизировать шаг 3 и 6: <code>Ycsyyds/codebase-analysis-skill</code> + <code>longranger2/project-doc-bootstrap</code>. Если цель — «переписать проект с нуля по PRD»: <code>emmaisasleep/project-rebirth-skill</code> (как шаблон, не как истина). Если цель — закрыть дыры в тестах и a11y: <code>anthropics/skills → webapp-testing</code> + <code>softaworks/agent-toolkit → qa-test-planner</code>.</p>
+<hr />
+<h3 id="5_1">5. Что я рекомендую не делать</h3>
+<ul>
+<li>Не запускать скиллы «для галочки» и не принимать их выводы без проверки кодом — в этом репозитории цена ошибки высокая: неверно описанный инвариант (например, «факт не обрезается») приведёт к regression в финансовых числах.</li>
+<li>Не позволять скиллу переписывать код в рамках «анализа»: сначала документ и тесты, потом изменения.</li>
+<li>Не тащить бинарные RE-паки (CTF/Ghidra/Frida) — они не про этот класс задач.</li>
+<li>Не строить процесс на репозиториях с 0–4★ без собственного ревью <code>SKILL.md</code>; и наоборот, не игнорировать маленькие репозитории только из-за звёзд.</li>
+</ul>
+<hr />
+<h3 id="6_1">6. Итог в одну строку</h3>
+<p>Для «обратного реинжиниринга проекта» на GitHub есть рабочие, но молодые скиллы: <strong><code>Ycsyyds/codebase-analysis-skill</code></strong> (методика + верификация ссылок) и <strong><code>emmaisasleep/project-rebirth-skill</code></strong> (PRD/CLAUDE.md из легаси), плюс инфраструктурные <strong><code>softaworks/agent-toolkit</code></strong> и <strong><code>anthropics/skills</code></strong>. Они экономят структуру отчёта, но не заменяют чтение кода, запуск <code>tsc</code>/тестов и проверку чисел — именно последнее и вскрыло главные проблемы этого дашборда.</p>
+</main>
+</body>
+</html>
