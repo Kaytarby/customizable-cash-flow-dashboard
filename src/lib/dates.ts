@@ -19,7 +19,9 @@ export const LEVEL_NAMES: Record<Level, string> = {
 /** День 0 — понедельник 1 января 2024 */
 export const BASE = Date.UTC(2024, 0, 1);
 const DAY_MS = 86400000;
-export const TOTAL_DAYS = 731; // 2024-01-01 .. 2025-12-31
+
+/** 2024-01-01 .. 2026-12-31 (1096 дней) */
+export const TOTAL_DAYS = 1096;
 
 export const MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 export const MONTHS_FULL = [
@@ -83,3 +85,74 @@ export function isoWeek(d: number): number {
   const firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
   return 1 + Math.round(((t.getTime() - firstThu.getTime()) / DAY_MS - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
 }
+
+/* ---------- сценарии данных ---------- */
+
+export type Scenario = "fact" | "plan" | "budget" | "rolling" | "planfact";
+
+export const SCENARIO_LABELS: Record<Scenario, string> = {
+  fact: "Факт",
+  plan: "Оперплан",
+  budget: "Бюджет",
+  rolling: "Ролинг-форкаст",
+  planfact: "План-факт анализ",
+};
+
+/** Конец месяца для заданного дня */
+export function endOfMonth(day: number): number {
+  const d = dayToDate(day);
+  return msToDay(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+}
+
+/** Ближайшее воскресенье на или до заданного дня (строго конец недели) */
+export function sundayOfWeek(day: number): number {
+  const w = dow(day); // 0=пн .. 6=вс
+  return day + (6 - w);
+}
+
+/** Граница факта — строго воскресенье недели. 15.03.2026 = вс */
+export const DEFAULT_FACT_CUTOFF = "2026-03-15";
+export const DEFAULT_PLAN_END = "2026-04-30";
+export const FACT_END_DAY = sundayOfWeek(isoToDay(DEFAULT_FACT_CUTOFF));
+
+/** Граница оперплана — строго последний день месяца. 30.04.2026 */
+export const PLAN_END_DAY = endOfMonth(isoToDay(DEFAULT_PLAN_END));
+
+/** Начало бюджета — день после конца оперплана */
+export const BUDGET_START_DAY = PLAN_END_DAY + 1;
+
+/** Предустановленные периоды по сценариям (2026 год) */
+export function scenarioPeriods(factCutoffIso: string, planEndIso: string): Record<Scenario, { from: string; to: string; label: string }> {
+  const factEnd = sundayOfWeek(isoToDay(factCutoffIso));
+  const planEnd = endOfMonth(isoToDay(planEndIso));
+  const budgetStart = planEnd + 1;
+  return {
+    fact: { from: "2026-01-01", to: dayToIso(factEnd), label: `Янв — ${fmtFull(factEnd)} (вс)` },
+    plan: { from: dayToIso(factEnd + 1), to: dayToIso(planEnd), label: `${fmtFull(factEnd + 1)} — ${fmtFull(planEnd)}` },
+    budget: { from: dayToIso(budgetStart), to: "2026-12-31", label: `${fmtFull(budgetStart)} — Дек` },
+    rolling: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
+    planfact: { from: "2026-01-01", to: "2026-12-31", label: "Янв — Дек 2026" },
+  };
+}
+
+
+export function normalizeFactCutoff(iso: string): string {
+  const d = isoToDay(iso);
+  if (Number.isNaN(d)) return iso;
+  return dayToIso(sundayOfWeek(Math.max(0, Math.min(TOTAL_DAYS - 1, d))));
+}
+
+export function normalizePlanEnd(iso: string): string {
+  const d = isoToDay(iso);
+  if (Number.isNaN(d)) return iso;
+  return dayToIso(endOfMonth(Math.max(0, Math.min(TOTAL_DAYS - 1, d))));
+}
+
+export function rollingBounds(factCutoffIso: string, planEndIso: string) {
+  const factEnd = sundayOfWeek(isoToDay(factCutoffIso));
+  const planEnd = endOfMonth(isoToDay(planEndIso));
+  return { factEnd, planEnd, budgetStart: planEnd + 1 };
+}
+
+/** Legacy defaults */
+export const SCENARIO_PERIODS = scenarioPeriods("2026-03-15", "2026-04-30");

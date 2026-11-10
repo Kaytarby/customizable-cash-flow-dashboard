@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Drilldown } from "./Drilldown";
 import { ChevronDown, ChevronRight, EyeOff, Focus } from "lucide-react";
 import { Model, RowView } from "../lib/model";
 import { Settings } from "../lib/settings";
@@ -17,9 +19,11 @@ export interface PivotHandlers {
 }
 
 function colWidth(st: Settings, level: string, kind: string) {
-  if (kind === "total") return Math.round(st.colWidth * 1.1);
+  if (kind === "total") return Math.round(st.colWidth * 1.15);
+  if (st.scenario === "compare" || st.scenario === "planfact") return Math.max(st.colWidth, 118);
+  if (st.scenario === "rolling" && level === "month") return Math.max(st.colWidth, 116);
   if (level === "day") return Math.max(52, Math.round(st.colWidth * 0.68));
-  if (level === "week") return Math.max(60, Math.round(st.colWidth * 0.86));
+  if (level === "week") return Math.max(64, Math.round(st.colWidth * 0.86));
   return st.colWidth;
 }
 
@@ -37,6 +41,7 @@ function highlight(name: string, q: string) {
 }
 
 export function PivotTable({ model, st, query, handlers }: { model: Model; st: Settings; query: string; handlers: PivotHandlers }) {
+  const [drill, setDrill] = useState<{ row: RowView; column: number } | null>(null);
   const { rows, cols, header, headerRows, values, heatMax } = model;
   const fmt = makeFormatter(st);
   const rowH = ROW_H[st.density];
@@ -150,11 +155,38 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
         </td>
         {cols.map((c, ci) => {
           const v = values[ri][ci];
-          const f = fmt(v);
+          const isPctExec = !!c.node.pctExec;
+          const isPctDev = !!c.node.pctDev;
+          const f = isPctExec
+            ? (v === null ? { text: "–", neg: false, zero: true } : { text: `${v.toFixed(1)}%`, neg: v < 100, zero: false })
+            : isPctDev
+              ? (v === null ? { text: "–", neg: false, zero: true } : { text: `${v.toFixed(1)}%`, neg: v < 0, zero: false })
+              : fmt(v);
+          // Execution % (pctExec): income <100% red, >=100% green; expense — наоборот
+          // Deviation % (pctDev): income >0 green (перевыполнение), <0 red; expense — наоборот (перерасход red, экономия green)
+          let execColor = "";
+          if (isPctExec && v !== null && !isCalc) {
+            const isOut = r.art.dir === "out" || ["op_out","cogs","staff","rent","mkt","tax","admin","inv_capex","inv_dev","loan_main","loan_int","owner_div","inv","fin"].includes(r.art.id) || (r.kind === "group" && r.art.children?.every(ch => ch.dir === "out"));
+            const good = isOut ? v < 100 : v >= 100;
+            const onTarget = Math.abs(v - 100) < 0.05;
+            execColor = onTarget ? "text-ink font-medium" : good ? "text-pos font-medium" : "text-neg font-medium";
+          } else if (isPctDev && v !== null && !isCalc) {
+            const isOut = r.art.dir === "out" || ["op_out","cogs","staff","rent","mkt","tax","admin","inv_capex","inv_dev","loan_main","loan_int","owner_div","inv","fin"].includes(r.art.id) || (r.kind === "group" && r.art.children?.every(ch => ch.dir === "out"));
+            const good = isOut ? v < 0 : v > 0;
+            const onTarget = Math.abs(v) < 0.05;
+            execColor = onTarget ? "text-ink font-medium" : good ? "text-pos font-medium" : "text-neg font-medium";
+          }
           const isSub = c.kind === "sub";
           const isTot = c.kind === "total";
+          const scenBg = !isTot && !isSub && st.scenario === "rolling"
+            ? (c.node.scenario === "plan"
+                ? "bg-sky-500/[0.08] border-l border-l-sky-400/40"
+                : c.node.scenario === "budget"
+                  ? "bg-amber-500/[0.09] border-l border-l-amber-400/40"
+                  : "")
+            : "";
           let style: React.CSSProperties | undefined;
-          if (st.heat && c.kind === "leaf" && v !== null && !isCalc && !f.zero) {
+          if (st.heat && c.kind === "leaf" && v !== null && !isCalc && !f.zero && !isPctExec) {
             const max = heatMax[ri][LEVEL_ORDER[c.node.level as keyof typeof LEVEL_ORDER]] || 1;
             const a = Math.min(1, Math.abs(v) / max) * 0.34;
             style = { backgroundColor: `rgba(var(${v < 0 ? "--heat-neg" : "--heat-pos"}), ${a.toFixed(3)})` };
@@ -168,11 +200,12 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
                 grid && "border-r border-r-line/50",
                 isSub && "bg-ink/[0.035] font-medium",
                 isTot && "sticky right-0 z-10 border-l border-l-line bg-inherit font-semibold shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.25)]",
-                !isSub && !isTot && st.weekendTint && c.node.weekend && !style && "bg-ink/[0.03]",
-                f.zero ? "text-ink-3" : f.neg && st.negRed ? "text-neg" : "text-ink"
+                scenBg,
+                !isSub && !isTot && st.weekendTint && c.node.weekend && !style && !scenBg && "bg-ink/[0.03]",
+                execColor || (f.zero ? "text-ink-3" : f.neg && st.negRed ? "text-neg" : "text-ink")
               )}
             >
-              {f.text}
+              <button className="w-full rounded text-right hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent" aria-label={`Расшифровать: ${r.name}, ${c.node.title}`} onClick={() => setDrill({ row: r, column: ci })}>{f.text}</button>
             </td>
           );
         })}
@@ -182,6 +215,7 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
 
   return (
     <div className="nice-scroll h-full w-full overflow-auto">
+      {drill && <Drilldown model={model} st={st} row={drill.row} column={drill.column} onClose={() => setDrill(null)} />}
       <table className="pivot text-ink" style={{ width: tableW, minWidth: "100%" }}>
         <colgroup>
           <col style={{ width: st.labelWidth }} />
@@ -221,7 +255,9 @@ export function PivotTable({ model, st, query, handlers }: { model: Model; st: S
                       grid ? "border-r border-r-line/60" : "",
                       isTotal ? "right-0 z-30 border-l border-l-line shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.25)]" : "z-20",
                       h.kind === "sub" && "bg-[color-mix(in_srgb,var(--ink)_4%,var(--surface-2))]",
-                      h.node.weekend && st.weekendTint && "text-neg/80"
+                      h.node.weekend && st.weekendTint && "text-neg/80",
+                      st.scenario === "rolling" && h.node.scenario === "plan" && "bg-sky-500/[0.11]",
+                      st.scenario === "rolling" && h.node.scenario === "budget" && "bg-amber-500/[0.12]"
                     )}
                   >
                     {h.kind === "group" ? (

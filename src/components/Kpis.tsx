@@ -1,7 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, Wallet, TrendingUp, TrendingDown, Scale } from "lucide-react";
-import { IN_PREFIX, OUT_PREFIX, NET, OPENING_BALANCE, sumRange } from "../lib/data";
+import { scenarioTotals, RollingBounds } from "../lib/data";
 import { compactMoney } from "../lib/format";
-import { fmtFull } from "../lib/dates";
+import { fmtFull, Scenario } from "../lib/dates";
 import { cn } from "../utils/cn";
 
 function Card({
@@ -35,25 +35,13 @@ function Card({
   );
 }
 
-export function Kpis({ s, e }: { s: number; e: number }) {
+export function Kpis({ s, e, scenario, bounds }: { s: number; e: number; scenario: Scenario; bounds?: RollingBounds }) {
   const len = e - s + 1;
   const ps = s - len;
   const pe = s - 1;
   const hasPrev = ps >= 0;
-  const cur = {
-    inn: sumRange(IN_PREFIX, s, e),
-    out: sumRange(OUT_PREFIX, s, e),
-    net: sumRange(NET.prefix, s, e),
-    close: OPENING_BALANCE + NET.prefix[e + 1],
-  };
-  const prev = hasPrev
-    ? {
-        inn: sumRange(IN_PREFIX, ps, pe),
-        out: sumRange(OUT_PREFIX, ps, pe),
-        net: sumRange(NET.prefix, ps, pe),
-        close: OPENING_BALANCE + NET.prefix[pe + 1],
-      }
-    : null;
+  const cur = scenarioTotals(s, e, scenario, bounds);
+  const prev = hasPrev ? scenarioTotals(ps, pe, scenario, bounds) : null;
   const d = (a: number, b?: number) => (b === undefined || b === 0 ? null : ((a - b) / Math.abs(b)) * 100);
   return (
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
